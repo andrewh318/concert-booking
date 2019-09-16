@@ -16,6 +16,7 @@ public class Concert {
     private String imageName;
     private String blurb;
     private Set<LocalDateTime> dates;
+    private Set<Performer> performers;
 
     public Concert(
             long id,
@@ -27,6 +28,7 @@ public class Concert {
         this.imageName = imageName;
         this.blurb = blurb;
         this.dates = new HashSet<>();
+        this.performers = new HashSet<>();
     }
 
     public long getId() {
@@ -63,6 +65,18 @@ public class Concert {
 
     // TODO Implement this class.
     public Set<LocalDateTime> getDates() {
-        return null;
+        return this.dates;
+    }
+
+    public void addDate(LocalDateTime date) {
+        this.dates.add(date);
+    }
+
+    public Set<Performer> getPerformers() {
+        return this.performers;
+    }
+
+    public void addPerformer(Performer performer) {
+        this.performers.add(performer);
     }
 }
