@@ -5,14 +5,15 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+@Entity
 public class Seat {
+	@Id
+	@GeneratedValue(strategy =  GenerationType.IDENTITY)
+	private Long id;
 	private String label;
 	private boolean isBooked;
 	private LocalDateTime date;
 	private BigDecimal price;
-
-
-    // TODO Implement this class.
 
 	public Seat() {}
 

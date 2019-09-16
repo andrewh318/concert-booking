@@ -10,13 +10,35 @@ import javax.persistence.*;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
+@Entity
+@Table(name="CONCERTS")
 public class Concert {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
+    @Column(name = "TITLE")
     private String title;
+    @Column(name = "IMAGE_NAME")
     private String imageName;
+    @Column(length = 1024, name = "BLURB")
     private String blurb;
+    @ElementCollection
+    @CollectionTable(
+            name="CONCERT_DATES",
+            joinColumns = @JoinColumn(name = "CONCERT_ID")
+    )
+    @Column (name = "DATE")
     private Set<LocalDateTime> dates;
+
+    @ManyToMany(cascade = CascadeType.PERSIST)
+    @JoinTable(
+            name="CONCERT_PERFORMER",
+            joinColumns = @JoinColumn(name = "CONCERT_ID"),
+            inverseJoinColumns = {@JoinColumn(name = "PERFORMER_ID")}
+    )
     private Set<Performer> performers;
+
+    public Concert() {}
 
     public Concert(
             long id,
