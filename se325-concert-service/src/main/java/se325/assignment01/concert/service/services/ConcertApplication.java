@@ -3,6 +3,7 @@ package se325.assignment01.concert.service.services;
 import javax.ws.rs.ApplicationPath;
 import javax.ws.rs.core.Application;
 
+import se325.assignment01.concert.service.services.resources.*;
 import se325.assignment01.concert.service.util.ConcertUtils;
 
 import java.util.HashSet;
@@ -21,6 +22,10 @@ public class ConcertApplication extends Application {
     public ConcertApplication() {
         classes.add(TestResource.class);
         classes.add(ConcertResource.class);
+        classes.add(PerformerResource.class);
+        classes.add(BookingResource.class);
+        classes.add(LoginResource.class);
+        classes.add(SeatResource.class);
         singletons.add(PersistenceManager.instance());
 
         ConcertUtils.initConcerts();
