@@ -88,6 +88,7 @@ public class ConcertResource {
                 ConcertDTO dtoConcert = ConcertMapper.toDto(c);
                 LOGGER.info("number of performers for concert " + c.getId() + "is " + c.getPerformers().size());
                 dtoConcert.setPerformers(c.getPerformers().stream().map(p -> PerformerMapper.toDto(p)).collect(Collectors.toList()));
+                dtoConcert.setDates(new ArrayList<>(c.getDates()));
                 return dtoConcert;
             }).collect(Collectors.toList());
 
