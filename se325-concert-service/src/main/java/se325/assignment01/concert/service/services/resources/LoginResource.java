@@ -44,6 +44,7 @@ public class LoginResource {
 
         Response response;
         if (user == null) {
+            LOGGER.info("No user found with details: " + userDTO.getUsername() + " " + userDTO.getPassword());
             response = Response.status(Response.Status.UNAUTHORIZED).build();
         } else {
             NewCookie cookie = new NewCookie(Config.AUTH_COOKIE, UUID.randomUUID().toString());

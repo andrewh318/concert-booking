@@ -14,7 +14,6 @@ public class Seat {
 	private boolean isBooked;
 	private LocalDateTime date;
 	private BigDecimal price;
-	private Long concertId;
 
 	public Seat() {}
 
@@ -55,13 +54,5 @@ public class Seat {
 
 	public void setPrice(BigDecimal price) {
 		this.price = price;
-	}
-
-	public Long getConcertId() {
-		return concertId;
-	}
-
-	public void setConcertId(Long concertId) {
-		this.concertId = concertId;
 	}
 }

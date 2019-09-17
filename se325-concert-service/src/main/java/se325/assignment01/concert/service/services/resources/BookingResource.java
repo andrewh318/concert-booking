@@ -26,25 +26,22 @@ public class BookingResource {
     private static Logger LOGGER = LoggerFactory.getLogger(ConcertResource.class);
     private EntityManager em = PersistenceManager.instance().createEntityManager();
 
-
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     public Response createBooking(@CookieParam(Config.AUTH_COOKIE) Cookie cookie, BookingRequestDTO bookingRequestDTO) {
-        // check authorization
-        if (cookie == null) {
-            return Response.status(Response.Status.UNAUTHORIZED).build();
-        }
-
-        Long targetConcertId = bookingRequestDTO.getConcertId();
-        LocalDateTime targetDate = bookingRequestDTO.getDate();
-
-        // check if concert exists
-        Concert concert;
-
         try {
             em.getTransaction().begin();
-            concert = em.find(Concert.class, targetConcertId);
-            em.getTransaction().commit();
+
+            if (cookie == null) {
+                LOGGER.info("Unauthorized request");
+                return Response.status(Response.Status.UNAUTHORIZED).build();
+            }
+
+            Long targetConcertId = bookingRequestDTO.getConcertId();
+            LocalDateTime targetDate = bookingRequestDTO.getDate();
+
+            // check if concert exists
+            Concert concert = em.find(Concert.class, targetConcertId);
 
             if (concert == null) {
                 LOGGER.info("concert is null");
@@ -55,79 +52,63 @@ public class BookingResource {
                 LOGGER.info("no valid concert");
                 return Response.status(Response.Status.BAD_REQUEST).build();
             }
-        } finally {
-            em.close();
-        }
 
-        List<String> seatLabels = bookingRequestDTO.getSeatLabels();
+            List<String> seatLabels = bookingRequestDTO.getSeatLabels();
 
-        // currently doing multiple database calls
-        // alternative: https://thoughts-on-java.org/fetch-multiple-entities-id-hibernate/
-        boolean allAvailable = true;
-        for (String seatLabel : seatLabels) {
-            // check if seat is booked
-            Seat seat;
-            try {
-                em.getTransaction().begin();
+            // currently doing multiple database calls
+            // alternative: https://thoughts-on-java.org/fetch-multiple-entities-id-hibernate/
+            boolean allAvailable = true;
+
+            for (String seatLabel : seatLabels) {
                 TypedQuery<Seat> seatQuery = em.createQuery(
                         "select s from Seat s " +
-                                "where s.concertId = :targetConcertId " +
-                                "and s.date = :targetDate " +
-                                "and s.label = :seatLabel " +
-                                "and s.isBooked = :targetIsBooked",
+                                "where s.date = :targetDate " +
+                                "and s.label = :seatLabel ",
                         Seat.class
                 );
-                seatQuery.setParameter("targetConcertId", targetConcertId);
                 seatQuery.setParameter("targetDate", targetDate);
                 seatQuery.setParameter("seatLabel", seatLabel);
-                seatQuery.setParameter("targetIsBooked", false);
 
-                seat = seatQuery.getResultList().stream().findFirst().orElse(null);
+                Seat seat = seatQuery.getResultList().stream().findFirst().orElse(null);
 
-                // temp error message- seat shouldn't ever be null as DB will be initiated properly
                 if (seat == null) {
+                    LOGGER.info("Unavailable seat is " + seatLabel);
                     allAvailable = false;
                     break;
                 }
 
-                em.getTransaction().commit();
-            }  finally {
-                em.close();
+                if (seat.isBooked() == true) {
+                    LOGGER.info("Seat is booked " + seatLabel);
+                    allAvailable = false;
+                    break;
+                }
             }
-        }
 
-        // return error message if not all seats are available
-        if (!allAvailable) {
-            return Response.status(Response.Status.FORBIDDEN).build();
-        }
+            // return error message if not all seats are available
+            if (!allAvailable) {
+                LOGGER.info("All seats not available");
+                return Response.status(Response.Status.FORBIDDEN).build();
+            }
 
-        // mark all seats as booked
-        for (String seatLabel : seatLabels) {
-            Seat seat;
-            try {
-                em.getTransaction().begin();
+            // mark all seats as booked
+            for (String seatLabel : seatLabels) {
+                Seat seat;
                 TypedQuery<Seat> seatQuery = em.createQuery(
                         "select s from Seat s " +
-                                "where s.concertId = :targetConcertId " +
-                                "and s.date = :targetDate " +
-                                "and s.label = :seatLabel " +
-                                "and s.isBooked = :targetIsBooked",
+                                "where s.date = :targetDate " +
+                                "and s.label = :seatLabel ",
                         Seat.class
                 );
-                seatQuery.setParameter("targetConcertId", targetConcertId);
                 seatQuery.setParameter("targetDate", targetDate);
                 seatQuery.setParameter("seatLabel", seatLabel);
-                seatQuery.setParameter("targetIsBooked", false);
 
                 seat = seatQuery.getResultList().stream().findFirst().orElse(null);
-
                 seat.setBooked(true);
                 em.merge(seat);
-
-                em.getTransaction().commit();
-            }  finally {
-                em.close();
             }
+            em.getTransaction().commit();
+        } finally {
+            em.close();
         }
 
         Response response = Response.created(URI.create("/bookings/" + 1)).build();

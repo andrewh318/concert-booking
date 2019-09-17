@@ -77,12 +77,23 @@ public class ConcertResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAllConcerts() {
         GenericEntity<List<ConcertDTO>> entity;
+        System.out.println("hello there");
+        LOGGER.info("hello im getting all the concerts");
+        LOGGER.debug("debugging");
         try {
             em.getTransaction().begin();
             TypedQuery<Concert> concertQuery = em.createQuery("select c from Concert c", Concert.class);
-            List<ConcertDTO> concerts = concertQuery.getResultList().stream().map(c -> ConcertMapper.toDto(c)).collect(Collectors.toList());
+            LOGGER.info("getting all the concerts");
+            List<ConcertDTO> concerts = concertQuery.getResultList().stream().map(c -> {
+                ConcertDTO dtoConcert = ConcertMapper.toDto(c);
+                LOGGER.info("number of performers for concert " + c.getId() + "is " + c.getPerformers().size());
+                dtoConcert.setPerformers(c.getPerformers().stream().map(p -> PerformerMapper.toDto(p)).collect(Collectors.toList()));
+                return dtoConcert;
+            }).collect(Collectors.toList());
 
             entity = new GenericEntity<List<ConcertDTO>>(concerts){};
+
+            em.getTransaction().commit();
         } finally {
             em.close();
         }
