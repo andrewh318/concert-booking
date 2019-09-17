@@ -69,7 +69,6 @@ public class ConcertResource {
             em.close();
         }
 
-        LOGGER.info("the dto concert size is: " + dtoConcert.getPerformers().size());
         return Response.ok(dtoConcert).build();
     }
 
@@ -77,16 +76,11 @@ public class ConcertResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAllConcerts() {
         GenericEntity<List<ConcertDTO>> entity;
-        System.out.println("hello there");
-        LOGGER.info("hello im getting all the concerts");
-        LOGGER.debug("debugging");
         try {
             em.getTransaction().begin();
             TypedQuery<Concert> concertQuery = em.createQuery("select c from Concert c", Concert.class);
-            LOGGER.info("getting all the concerts");
             List<ConcertDTO> concerts = concertQuery.getResultList().stream().map(c -> {
                 ConcertDTO dtoConcert = ConcertMapper.toDto(c);
-                LOGGER.info("number of performers for concert " + c.getId() + "is " + c.getPerformers().size());
                 dtoConcert.setPerformers(c.getPerformers().stream().map(p -> PerformerMapper.toDto(p)).collect(Collectors.toList()));
                 dtoConcert.setDates(new ArrayList<>(c.getDates()));
                 return dtoConcert;

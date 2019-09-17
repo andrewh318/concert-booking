@@ -33,14 +33,24 @@ public class SeatResource {
         GenericEntity<List<SeatDTO>> entity;
         try {
             em.getTransaction().begin();
-            TypedQuery<Seat> seatQuery = em.createQuery(
-                    "select s from Seat s where s.isBooked=:targetIsBooked and s.date=:targetDate",
-                    Seat.class
-            );
 
-            boolean targetIsBooked = status == BookingStatus.Booked;
+            TypedQuery<Seat> seatQuery;
 
-            seatQuery.setParameter("targetIsBooked", targetIsBooked);
+            if (status == BookingStatus.Any) {
+                seatQuery = em.createQuery(
+                        "select s from Seat s where s.date=:targetDate",
+                        Seat.class
+                );
+            } else {
+                seatQuery = em.createQuery(
+                        "select s from Seat s where s.isBooked=:targetIsBooked and s.date=:targetDate",
+                        Seat.class
+                );
+
+                boolean targetIsBooked = status == BookingStatus.Booked;
+                seatQuery.setParameter("targetIsBooked", targetIsBooked);
+            }
+
             seatQuery.setParameter("targetDate", localDateTime);
 
             List<SeatDTO> seats = seatQuery.getResultList().stream().map(s -> {

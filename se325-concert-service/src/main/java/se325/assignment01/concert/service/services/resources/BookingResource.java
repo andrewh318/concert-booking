@@ -4,16 +4,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se325.assignment01.concert.common.config.Config;
 import se325.assignment01.concert.common.dto.BookingRequestDTO;
+import se325.assignment01.concert.service.domain.BookingRequest;
 import se325.assignment01.concert.service.domain.Concert;
 import se325.assignment01.concert.service.domain.Seat;
 import se325.assignment01.concert.service.services.PersistenceManager;
 
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.CookieParam;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
+import javax.print.attribute.standard.Media;
+import javax.ws.rs.*;
 import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -26,9 +25,31 @@ public class BookingResource {
     private static Logger LOGGER = LoggerFactory.getLogger(ConcertResource.class);
     private EntityManager em = PersistenceManager.instance().createEntityManager();
 
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getAllBookings(@CookieParam(Config.AUTH_COOKIE) Cookie cookie) {
+        if (cookie == null) {
+            return Response.status(Response.Status.UNAUTHORIZED).build();
+        }
+
+        return null;
+    }
+
+    @GET
+    @Path("{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getBooking(@CookieParam(Config.AUTH_COOKIE) Cookie cookie, @PathParam("id") long id) {
+        if (cookie == null) {
+            return Response.status(Response.Status.UNAUTHORIZED).build();
+        }
+
+        return null;
+    }
+
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     public Response createBooking(@CookieParam(Config.AUTH_COOKIE) Cookie cookie, BookingRequestDTO bookingRequestDTO) {
+        BookingRequest bookingRequest;
         try {
             em.getTransaction().begin();
 
@@ -71,6 +92,7 @@ public class BookingResource {
 
                 Seat seat = seatQuery.getResultList().stream().findFirst().orElse(null);
 
+                // TODO merge into one method
                 if (seat == null) {
                     LOGGER.info("Unavailable seat is " + seatLabel);
                     allAvailable = false;
@@ -93,6 +115,7 @@ public class BookingResource {
             // mark all seats as booked
             for (String seatLabel : seatLabels) {
                 Seat seat;
+                // TODO refactor this out into a function helper
                 TypedQuery<Seat> seatQuery = em.createQuery(
                         "select s from Seat s " +
                                 "where s.date = :targetDate " +
@@ -106,12 +129,23 @@ public class BookingResource {
                 seat.setBooked(true);
                 em.merge(seat);
             }
+
+            // create new booking object
+            bookingRequest = new BookingRequest(
+                    concert.getId(),
+                    targetDate,
+                    seatLabels
+            );
+
+            em.persist(bookingRequest);
             em.getTransaction().commit();
         } finally {
             em.close();
         }
 
-        Response response = Response.created(URI.create("/bookings/" + 1)).build();
+        LOGGER.debug("new booking request id is " + bookingRequest.getId());
+
+        Response response = Response.created(URI.create("/bookings/" + bookingRequest.getId())).build();
         return response;
     }
 }
