@@ -101,4 +101,16 @@ public class Concert {
     public void addPerformer(Performer performer) {
         this.performers.add(performer);
     }
+
+    @Override
+    public String toString() {
+        return "Concert{" +
+                "id=" + id +
+                ", title='" + title + '\'' +
+                ", imageName='" + imageName + '\'' +
+                ", blurb='" + blurb + '\'' +
+                ", dates=" + dates +
+                ", performers=" + performers +
+                '}';
+    }
 }
