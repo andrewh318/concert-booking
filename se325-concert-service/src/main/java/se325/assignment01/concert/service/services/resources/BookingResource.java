@@ -87,12 +87,32 @@ public class BookingResource {
         BookingDTO dtoBooking;
         try {
             em.getTransaction().begin();
+
+            String authToken = cookie.getValue();
+            // get user making request
+            TypedQuery<User> userQuery = em.createQuery("select u from User u where u.authToken = :authToken", User.class);
+            userQuery.setParameter("authToken", authToken);
+
+            User user = userQuery.getResultList().stream().findFirst().orElse(null);
+
+            if (user == null) {
+                return Response.status(Response.Status.FORBIDDEN).build();
+            }
+
             Booking booking = em.find(Booking.class, id);
-            em.getTransaction().commit();
 
             if (booking == null) {
                 return Response.status(Response.Status.NOT_FOUND).build();
             }
+
+            // check if user owns the booking
+            long expectedUserId = booking.getUser().getId();
+
+            if (user.getId() != expectedUserId) {
+                return Response.status(Response.Status.FORBIDDEN).build();
+            }
+            
+            em.getTransaction().commit();
 
             dtoBooking = BookingMapper.toDto(booking);
         } finally {
