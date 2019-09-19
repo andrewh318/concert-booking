@@ -2,6 +2,7 @@ package se325.assignment01.concert.service.domain;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import org.hibernate.annotations.Fetch;
 import se325.assignment01.concert.common.jackson.LocalDateTimeDeserializer;
 import se325.assignment01.concert.common.jackson.LocalDateTimeSerializer;
 
@@ -12,21 +13,23 @@ import java.util.List;
 
 @Entity
 //TODO come up with better annotations for table names of seat labels 
-public class BookingRequest {
+public class Booking {
     @Id
     @GeneratedValue(strategy= GenerationType.IDENTITY)
     private long id;
     private long concertId;
     private LocalDateTime date;
-    @ElementCollection
-    private List<String> seatLabels = new ArrayList<>();
+    @ManyToMany(fetch = FetchType.EAGER)
+    private List<Seat> seats = new ArrayList<>();
+    @ManyToOne(cascade = CascadeType.PERSIST)
+    private User user;
 
-    public BookingRequest(){}
+    public Booking(){}
 
-    public BookingRequest(long concertId, LocalDateTime date, List<String> seatLabels) {
+    public Booking(long concertId, LocalDateTime date, List<Seat> seats) {
         this.concertId = concertId;
         this.date = date;
-        this.seatLabels = seatLabels;
+        this.seats = seats;
     }
 
     public long getConcertId() {
@@ -47,12 +50,12 @@ public class BookingRequest {
         this.date = date;
     }
 
-    public List<String> getSeatLabels() {
-        return seatLabels;
+    public List<Seat> getSeats() {
+        return seats;
     }
 
-    public void setSeatLabels(List<String> seatLabels) {
-        this.seatLabels = seatLabels;
+    public void setSeats(List<Seat> seats) {
+        this.seats = seats;
     }
 
     public long getId() {
@@ -61,5 +64,13 @@ public class BookingRequest {
 
     public void setId(long id) {
         this.id = id;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 }

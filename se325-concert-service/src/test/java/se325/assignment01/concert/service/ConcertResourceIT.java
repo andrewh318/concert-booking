@@ -337,7 +337,7 @@ public class ConcertResourceIT {
         Response bookingResponse = attemptBooking(client, 1,
                 LocalDateTime.of(2020, 2, 15, 20, 0, 0),
                 "C5", "C6");
-
+        
         // Get the booking
         BookingDTO booking = client.target(bookingResponse.getLocation()).request().get(BookingDTO.class);
 

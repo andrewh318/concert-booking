@@ -27,6 +27,7 @@ public class LoginResource {
     public Response login(UserDTO userDTO) {
         // check if the user is in the database
         User user;
+        Response response;
         try {
             em.getTransaction().begin();
             TypedQuery<User> userQuery = em.createQuery(
@@ -38,21 +39,25 @@ public class LoginResource {
 
             // calling getSingleResult throws an exception when no entry found which causes problems
             user = userQuery.getResultList().stream().findFirst().orElse(null);
+
+            if (user == null) {
+                LOGGER.info("No user found with details: " + userDTO.getUsername() + " " + userDTO.getPassword());
+                response = Response.status(Response.Status.UNAUTHORIZED).build();
+            } else {
+                String uuid = UUID.randomUUID().toString();
+
+                // set user auth token
+                user.setAuthToken(uuid);
+                em.merge(user);
+
+                NewCookie cookie = new NewCookie(Config.AUTH_COOKIE, uuid);
+                response = Response.ok().cookie(cookie).build();
+            }
+
+            em.getTransaction().commit();
         } finally {
             em.close();
         }
-
-        Response response;
-        if (user == null) {
-            LOGGER.info("No user found with details: " + userDTO.getUsername() + " " + userDTO.getPassword());
-            response = Response.status(Response.Status.UNAUTHORIZED).build();
-        } else {
-            NewCookie cookie = new NewCookie(Config.AUTH_COOKIE, UUID.randomUUID().toString());
-            LOGGER.info("Heres my cookie: ");
-            LOGGER.info(cookie.toString());
-            response = Response.ok().cookie(cookie).build();
-        }
-
         return response;
     }
 }

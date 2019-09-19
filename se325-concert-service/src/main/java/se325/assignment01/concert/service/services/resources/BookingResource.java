@@ -3,22 +3,27 @@ package se325.assignment01.concert.service.services.resources;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se325.assignment01.concert.common.config.Config;
+import se325.assignment01.concert.common.dto.BookingDTO;
 import se325.assignment01.concert.common.dto.BookingRequestDTO;
-import se325.assignment01.concert.service.domain.BookingRequest;
+import se325.assignment01.concert.service.domain.Booking;
 import se325.assignment01.concert.service.domain.Concert;
 import se325.assignment01.concert.service.domain.Seat;
+import se325.assignment01.concert.service.domain.User;
+import se325.assignment01.concert.service.mapper.BookingMapper;
 import se325.assignment01.concert.service.services.PersistenceManager;
 
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
-import javax.print.attribute.standard.Media;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Cookie;
+import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.net.URI;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Path("/concert-service/bookings")
 public class BookingResource {
@@ -32,7 +37,41 @@ public class BookingResource {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        return null;
+        // authenticate user
+        String authToken = cookie.getValue();
+
+        GenericEntity<List<BookingDTO>> entity;
+        // search this auth token to see if there is an associated user
+        try {
+            em.getTransaction().begin();
+            TypedQuery<User> userQuery = em.createQuery("select u from User u where u.authToken = :authToken", User.class);
+            userQuery.setParameter("authToken", authToken);
+
+            User user = userQuery.getResultList().stream().findFirst().orElse(null);
+
+            if (user == null) {
+                return Response.status(Response.Status.FORBIDDEN).build();
+            }
+
+            long userId = user.getId();
+
+            // get all bookings associated with user
+            TypedQuery<Booking> bookingQuery = em.createQuery("select b from Booking b where b.user.id = :userId", Booking.class);
+            bookingQuery.setParameter("userId", userId);
+
+            List<BookingDTO> bookingRequests = bookingQuery.getResultList().stream().map(b -> {
+                return BookingMapper.toDto(b);
+            }).collect(Collectors.toList());
+
+            entity = new GenericEntity<List<BookingDTO>>(bookingRequests){};
+
+            em.getTransaction().commit();
+        } finally {
+            em.close();
+        }
+
+
+        return Response.ok(entity).build();
     }
 
     @GET
@@ -40,22 +79,51 @@ public class BookingResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getBooking(@CookieParam(Config.AUTH_COOKIE) Cookie cookie, @PathParam("id") long id) {
         if (cookie == null) {
+            LOGGER.info("no cookie for get booking");
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        return null;
+        LOGGER.info("Retrieving booking with id " + id);
+        BookingDTO dtoBooking;
+        try {
+            em.getTransaction().begin();
+            Booking booking = em.find(Booking.class, id);
+            em.getTransaction().commit();
+
+            if (booking == null) {
+                return Response.status(Response.Status.NOT_FOUND).build();
+            }
+
+            dtoBooking = BookingMapper.toDto(booking);
+        } finally {
+            em.close();
+        }
+
+        return Response.ok(dtoBooking).build();
     }
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     public Response createBooking(@CookieParam(Config.AUTH_COOKIE) Cookie cookie, BookingRequestDTO bookingRequestDTO) {
-        BookingRequest bookingRequest;
+        Booking booking;
         try {
             em.getTransaction().begin();
 
             if (cookie == null) {
                 LOGGER.info("Unauthorized request");
                 return Response.status(Response.Status.UNAUTHORIZED).build();
+            }
+
+            String authToken = cookie.getValue();
+
+            // find user making the booking
+            TypedQuery<User> userQuery = em.createQuery("select u from User u where u.authToken = :authToken", User.class);
+            userQuery.setParameter("authToken", authToken);
+
+            User user = userQuery.getResultList().stream().findFirst().orElse(null);
+
+            if (user == null) {
+                return Response.status(Response.Status.FORBIDDEN).build();
             }
 
             Long targetConcertId = bookingRequestDTO.getConcertId();
@@ -112,6 +180,8 @@ public class BookingResource {
                 return Response.status(Response.Status.FORBIDDEN).build();
             }
 
+            List<Seat> bookedSeats = new ArrayList<>();
+            
             // mark all seats as booked
             for (String seatLabel : seatLabels) {
                 Seat seat;
@@ -127,25 +197,29 @@ public class BookingResource {
 
                 seat = seatQuery.getResultList().stream().findFirst().orElse(null);
                 seat.setBooked(true);
+                bookedSeats.add(seat);
+                
                 em.merge(seat);
             }
 
             // create new booking object
-            bookingRequest = new BookingRequest(
+            booking = new Booking(
                     concert.getId(),
                     targetDate,
-                    seatLabels
+                    bookedSeats
             );
 
-            em.persist(bookingRequest);
+            booking.setUser(user);
+
+            em.persist(booking);
             em.getTransaction().commit();
         } finally {
             em.close();
         }
 
-        LOGGER.debug("new booking request id is " + bookingRequest.getId());
+        LOGGER.debug("new booking id is " + booking.getId());
 
-        Response response = Response.created(URI.create("/bookings/" + bookingRequest.getId())).build();
+        Response response = Response.created(URI.create("/concert-service/bookings/" + booking.getId())).build();
         return response;
     }
 }

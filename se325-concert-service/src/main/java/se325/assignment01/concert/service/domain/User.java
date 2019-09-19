@@ -10,6 +10,7 @@ public class User {
     private Long id;
     private String username;
     private String password;
+    private String authToken;
     private Long version;
 
     public User() {}
@@ -56,5 +57,13 @@ public class User {
 
     public void setVersion(Long version) {
         this.version = version;
+    }
+
+    public String getAuthToken() {
+        return authToken;
+    }
+
+    public void setAuthToken(String authToken) {
+        this.authToken = authToken;
     }
 }
