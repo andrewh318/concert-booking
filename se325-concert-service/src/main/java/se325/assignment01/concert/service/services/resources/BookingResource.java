@@ -37,27 +37,22 @@ public class BookingResource {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        // authenticate user
-        String authToken = cookie.getValue();
-
         GenericEntity<List<BookingDTO>> entity;
         // search this auth token to see if there is an associated user
         try {
             em.getTransaction().begin();
-            TypedQuery<User> userQuery = em.createQuery("select u from User u where u.authToken = :authToken", User.class);
-            userQuery.setParameter("authToken", authToken);
-
-            User user = userQuery.getResultList().stream().findFirst().orElse(null);
+            
+            // authenticate user
+            String authToken = cookie.getValue();
+            User user = this.getUserByAuthTokenIfExists(authToken);
 
             if (user == null) {
                 return Response.status(Response.Status.FORBIDDEN).build();
             }
 
-            long userId = user.getId();
-
             // get all bookings associated with user
             TypedQuery<Booking> bookingQuery = em.createQuery("select b from Booking b where b.user.id = :userId", Booking.class);
-            bookingQuery.setParameter("userId", userId);
+            bookingQuery.setParameter("userId", user.getId());
 
             List<BookingDTO> bookingRequests = bookingQuery.getResultList().stream().map(b -> {
                 return BookingMapper.toDto(b);
@@ -89,11 +84,9 @@ public class BookingResource {
             em.getTransaction().begin();
 
             String authToken = cookie.getValue();
-            // get user making request
-            TypedQuery<User> userQuery = em.createQuery("select u from User u where u.authToken = :authToken", User.class);
-            userQuery.setParameter("authToken", authToken);
 
-            User user = userQuery.getResultList().stream().findFirst().orElse(null);
+            // get user making request
+            User user = this.getUserByAuthTokenIfExists(authToken);
 
             if (user == null) {
                 return Response.status(Response.Status.FORBIDDEN).build();
@@ -137,10 +130,7 @@ public class BookingResource {
             String authToken = cookie.getValue();
 
             // find user making the booking
-            TypedQuery<User> userQuery = em.createQuery("select u from User u where u.authToken = :authToken", User.class);
-            userQuery.setParameter("authToken", authToken);
-
-            User user = userQuery.getResultList().stream().findFirst().orElse(null);
+            User user = this.getUserByAuthTokenIfExists(authToken);
 
             if (user == null) {
                 return Response.status(Response.Status.FORBIDDEN).build();
@@ -169,26 +159,11 @@ public class BookingResource {
             boolean allAvailable = true;
 
             for (String seatLabel : seatLabels) {
-                TypedQuery<Seat> seatQuery = em.createQuery(
-                        "select s from Seat s " +
-                                "where s.date = :targetDate " +
-                                "and s.label = :seatLabel ",
-                        Seat.class
-                );
-                seatQuery.setParameter("targetDate", targetDate);
-                seatQuery.setParameter("seatLabel", seatLabel);
-
-                Seat seat = seatQuery.getResultList().stream().findFirst().orElse(null);
+                Seat seat = this.getSeat(targetDate, seatLabel);
 
                 // TODO merge into one method
-                if (seat == null) {
+                if (seat == null || seat.isBooked() == true) {
                     LOGGER.info("Unavailable seat is " + seatLabel);
-                    allAvailable = false;
-                    break;
-                }
-
-                if (seat.isBooked() == true) {
-                    LOGGER.info("Seat is booked " + seatLabel);
                     allAvailable = false;
                     break;
                 }
@@ -204,18 +179,7 @@ public class BookingResource {
             
             // mark all seats as booked
             for (String seatLabel : seatLabels) {
-                Seat seat;
-                // TODO refactor this out into a function helper
-                TypedQuery<Seat> seatQuery = em.createQuery(
-                        "select s from Seat s " +
-                                "where s.date = :targetDate " +
-                                "and s.label = :seatLabel ",
-                        Seat.class
-                );
-                seatQuery.setParameter("targetDate", targetDate);
-                seatQuery.setParameter("seatLabel", seatLabel);
-
-                seat = seatQuery.getResultList().stream().findFirst().orElse(null);
+                Seat seat = this.getSeat(targetDate, seatLabel);
                 seat.setBooked(true);
                 bookedSeats.add(seat);
                 
@@ -238,8 +202,31 @@ public class BookingResource {
         }
 
         LOGGER.debug("new booking id is " + booking.getId());
-
         Response response = Response.created(URI.create("/concert-service/bookings/" + booking.getId())).build();
         return response;
+    }
+
+    private User getUserByAuthTokenIfExists(String authToken) {
+        TypedQuery<User> userQuery = em.createQuery("select u from User u where u.authToken = :authToken", User.class);
+        userQuery.setParameter("authToken", authToken);
+
+        User user = userQuery.getResultList().stream().findFirst().orElse(null);
+
+        return user;
+    }
+
+    private Seat getSeat(LocalDateTime targetDate, String seatLabel) {
+        TypedQuery<Seat> seatQuery = em.createQuery(
+                "select s from Seat s " +
+                        "where s.date = :targetDate " +
+                        "and s.label = :seatLabel ",
+                Seat.class
+        );
+        seatQuery.setParameter("targetDate", targetDate);
+        seatQuery.setParameter("seatLabel", seatLabel);
+
+        Seat seat = seatQuery.getResultList().stream().findFirst().orElse(null);
+
+        return seat;
     }
 }

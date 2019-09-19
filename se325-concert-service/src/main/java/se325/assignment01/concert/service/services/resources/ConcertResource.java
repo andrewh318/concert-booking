@@ -25,9 +25,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-// TODO Create separate resource class for concerts and performers. Separate services so each one can be scaled individually
-
-// TODO Create better authentication. Should be saving the token to the user domain object. Verify upon receiving token that the user is who they say they are
 @Path("/concert-service/concerts")
 public class ConcertResource {
     private static Logger LOGGER = LoggerFactory.getLogger(ConcertResource.class);
