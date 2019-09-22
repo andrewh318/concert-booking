@@ -142,13 +142,7 @@ public class BookingResource {
             // check if concert exists
             Concert concert = em.find(Concert.class, targetConcertId);
 
-            if (concert == null) {
-                LOGGER.info("concert is null");
-                return Response.status(Response.Status.BAD_REQUEST).build();
-            }
-
-            if (!concert.getDates().contains(targetDate)) {
-                LOGGER.info("no valid concert");
+            if (concert == null || !concert.getDates().contains(targetDate)) {
                 return Response.status(Response.Status.BAD_REQUEST).build();
             }
 
@@ -161,7 +155,6 @@ public class BookingResource {
             for (String seatLabel : seatLabels) {
                 Seat seat = this.getSeat(targetDate, seatLabel);
 
-                // TODO merge into one method
                 if (seat == null || seat.isBooked() == true) {
                     LOGGER.info("Unavailable seat is " + seatLabel);
                     allAvailable = false;
