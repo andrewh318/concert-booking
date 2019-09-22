@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 import se325.assignment01.concert.common.config.Config;
 import se325.assignment01.concert.common.dto.BookingDTO;
 import se325.assignment01.concert.common.dto.BookingRequestDTO;
+import se325.assignment01.concert.common.dto.ConcertInfoNotificationDTO;
+import se325.assignment01.concert.common.dto.ConcertInfoSubscriptionDTO;
 import se325.assignment01.concert.service.domain.Booking;
 import se325.assignment01.concert.service.domain.Concert;
 import se325.assignment01.concert.service.domain.Seat;
@@ -15,6 +17,8 @@ import se325.assignment01.concert.service.services.PersistenceManager;
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
 import javax.ws.rs.*;
+import javax.ws.rs.container.AsyncResponse;
+import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.MediaType;
@@ -23,14 +27,21 @@ import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-@Path("/concert-service/bookings")
+@Path("/concert-service")
+//TODO see if theres a better way to handle getting all the seat objects associated with seat labels 
 public class BookingResource {
     private static Logger LOGGER = LoggerFactory.getLogger(ConcertResource.class);
+    public static final int THEATRE_CAPACITY = 120;
     private EntityManager em = PersistenceManager.instance().createEntityManager();
 
+    private static Map<Long, List<Subscription>> activeConcertSubscriptions = new ConcurrentHashMap<>();
+
     @GET
+    @Path("/bookings")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAllBookings(@CookieParam(Config.AUTH_COOKIE) Cookie cookie) {
         if (cookie == null) {
@@ -70,7 +81,7 @@ public class BookingResource {
     }
 
     @GET
-    @Path("{id}")
+    @Path("/bookings/{id}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getBooking(@CookieParam(Config.AUTH_COOKIE) Cookie cookie, @PathParam("id") long id) {
         if (cookie == null) {
@@ -116,6 +127,7 @@ public class BookingResource {
     }
 
     @POST
+    @Path("/bookings")
     @Consumes(MediaType.APPLICATION_JSON)
     public Response createBooking(@CookieParam(Config.AUTH_COOKIE) Cookie cookie, BookingRequestDTO bookingRequestDTO) {
         Booking booking;
@@ -189,14 +201,105 @@ public class BookingResource {
             booking.setUser(user);
 
             em.persist(booking);
+
+            this.processSubscriptionHook(bookingRequestDTO.getConcertId());
+
             em.getTransaction().commit();
         } finally {
             em.close();
         }
 
-        LOGGER.debug("new booking id is " + booking.getId());
         Response response = Response.created(URI.create("/concert-service/bookings/" + booking.getId())).build();
         return response;
+    }
+
+    @POST
+    @Path("/subscribe/concertInfo")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public void subscribe(@Suspended AsyncResponse response, @CookieParam(Config.AUTH_COOKIE) Cookie cookie, ConcertInfoSubscriptionDTO concertInfoSubscriptionDTO) {
+        try {
+            em.getTransaction().begin();
+            LOGGER.info("inside the subscribe method");
+
+            if (cookie == null) {
+                response.resume(Response.status(Response.Status.UNAUTHORIZED).build());
+            }
+
+            String authToken = cookie.getValue();
+
+            User user = this.getUserByAuthTokenIfExists(authToken);
+
+            if (user == null) {
+                response.resume(Response.status(Response.Status.FORBIDDEN).build());
+            }
+
+            // check for valid concert
+            long targetConcertId = concertInfoSubscriptionDTO.getConcertId();
+            LocalDateTime targetDate = concertInfoSubscriptionDTO.getDate();
+
+            TypedQuery<Concert> concertQuery = em.createQuery("select c from Concert c where c.id = :targetConcertId", Concert.class);
+            concertQuery.setParameter("targetConcertId", targetConcertId);
+
+            Concert concert = concertQuery.getResultList().stream().findFirst().orElse(null);
+
+            if (concert == null || !concert.getDates().contains(targetDate)) {
+                response.resume(Response.status(Response.Status.BAD_REQUEST).build());
+            }
+
+            // subscribe the user
+            List<Subscription> subscriptions = BookingResource.activeConcertSubscriptions.getOrDefault(targetConcertId, new ArrayList<>());
+            subscriptions.add(new Subscription(concertInfoSubscriptionDTO, response));
+
+            BookingResource.activeConcertSubscriptions.put(targetConcertId, subscriptions);
+
+            LOGGER.info("subscribed for concert: " + targetConcertId + " there are" + BookingResource.activeConcertSubscriptions.size() +" number of subscriptions");
+
+            em.getTransaction().commit();
+        } finally {
+            em.close();
+        }
+    }
+
+    //TODO make this actually be wrapped inside a new transaction
+    // run this code after transaction closed for createBooking
+    private void processSubscriptionHook(long concertId) {
+        LOGGER.info("running the subscription hook");
+        LOGGER.info("there are " + BookingResource.activeConcertSubscriptions.size() + " number of subscriptions");
+        List<Subscription> subscriptions = BookingResource.activeConcertSubscriptions.get(concertId);
+
+        if (subscriptions == null) {
+            LOGGER.info("subscriptions is null for id: " + concertId);
+            return;
+        }
+
+        LOGGER.info("there exists subscriptions");
+
+        for (Subscription subscription : subscriptions) {
+            LocalDateTime targetdate = subscription.getInfo().getDate();
+            
+            TypedQuery<Seat> seatQuery = em.createQuery("select s from Seat s where s.date=:targetDate and s.isBooked=:status", Seat.class);
+            seatQuery.setParameter("targetDate", targetdate);
+            seatQuery.setParameter("status", false);
+
+            int numAvailableSeats = seatQuery.getResultList().size();
+
+            // if we have 120 seats and the threshold is 90% (108), then we notify when there is less than 120-108 = 12 seats left
+            double percentage = subscription.getInfo().getPercentageBooked() / (double) 100;
+
+            int threshold = (int) (THEATRE_CAPACITY - (percentage * THEATRE_CAPACITY));
+
+            if (subscription.getInfo().getConcertId() == 1) {
+                LOGGER.info("num available seats is: " + numAvailableSeats);
+                LOGGER.info("threshold is: " + threshold);
+            }
+
+            if (numAvailableSeats < threshold) {
+                AsyncResponse response = subscription.getResponse();
+                response.resume(new ConcertInfoNotificationDTO(numAvailableSeats));
+            }
+        }
+
     }
 
     private User getUserByAuthTokenIfExists(String authToken) {
@@ -223,3 +326,24 @@ public class BookingResource {
         return seat;
     }
 }
+
+class Subscription {
+    private final AsyncResponse response;
+    private final ConcertInfoSubscriptionDTO info;
+
+    public Subscription(ConcertInfoSubscriptionDTO info, AsyncResponse response) {
+        this.info = info;
+        this.response = response;
+    }
+
+    public AsyncResponse getResponse() {
+        return this.response;
+    }
+
+    public ConcertInfoSubscriptionDTO getInfo() {
+        return this.info;
+    }
+
+}
+
+
