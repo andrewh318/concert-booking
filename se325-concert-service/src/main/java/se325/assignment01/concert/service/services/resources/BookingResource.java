@@ -36,9 +36,15 @@ import java.util.stream.Collectors;
 public class BookingResource {
     private static Logger LOGGER = LoggerFactory.getLogger(ConcertResource.class);
     public static final int THEATRE_CAPACITY = 120;
-    private EntityManager em = PersistenceManager.instance().createEntityManager();
+    private PersistenceManager persistenceManager;
 
+    // initialize map here rather than in constructor otherwise the collection will be overwritten
+    // each time a resource is created
     private static Map<Long, List<Subscription>> activeConcertSubscriptions = new ConcurrentHashMap<>();
+
+    public BookingResource() {
+         this.persistenceManager = PersistenceManager.instance();
+    }
 
     @GET
     @Path("/bookings")
@@ -49,13 +55,15 @@ public class BookingResource {
         }
 
         GenericEntity<List<BookingDTO>> entity;
+
+        EntityManager em =  persistenceManager.createEntityManager();
         // search this auth token to see if there is an associated user
         try {
             em.getTransaction().begin();
             
             // authenticate user
             String authToken = cookie.getValue();
-            User user = this.getUserByAuthTokenIfExists(authToken);
+            User user = this.getUserByAuthTokenIfExists(authToken, em);
 
             if (user == null) {
                 return Response.status(Response.Status.FORBIDDEN).build();
@@ -91,13 +99,15 @@ public class BookingResource {
 
         LOGGER.info("Retrieving booking with id " + id);
         BookingDTO dtoBooking;
+        EntityManager em =  persistenceManager.createEntityManager();
+
         try {
             em.getTransaction().begin();
 
             String authToken = cookie.getValue();
 
             // get user making request
-            User user = this.getUserByAuthTokenIfExists(authToken);
+            User user = this.getUserByAuthTokenIfExists(authToken, em);
 
             if (user == null) {
                 return Response.status(Response.Status.FORBIDDEN).build();
@@ -131,6 +141,8 @@ public class BookingResource {
     @Consumes(MediaType.APPLICATION_JSON)
     public Response createBooking(@CookieParam(Config.AUTH_COOKIE) Cookie cookie, BookingRequestDTO bookingRequestDTO) {
         Booking booking;
+        EntityManager em =  persistenceManager.createEntityManager();
+
         try {
             em.getTransaction().begin();
 
@@ -142,7 +154,7 @@ public class BookingResource {
             String authToken = cookie.getValue();
 
             // find user making the booking
-            User user = this.getUserByAuthTokenIfExists(authToken);
+            User user = this.getUserByAuthTokenIfExists(authToken, em);
 
             if (user == null) {
                 return Response.status(Response.Status.FORBIDDEN).build();
@@ -165,7 +177,7 @@ public class BookingResource {
             boolean allAvailable = true;
 
             for (String seatLabel : seatLabels) {
-                Seat seat = this.getSeat(targetDate, seatLabel);
+                Seat seat = this.getSeat(targetDate, seatLabel, em);
 
                 if (seat == null || seat.isBooked() == true) {
                     LOGGER.info("Unavailable seat is " + seatLabel);
@@ -184,7 +196,7 @@ public class BookingResource {
             
             // mark all seats as booked
             for (String seatLabel : seatLabels) {
-                Seat seat = this.getSeat(targetDate, seatLabel);
+                Seat seat = this.getSeat(targetDate, seatLabel, em);
                 seat.setBooked(true);
                 bookedSeats.add(seat);
                 
@@ -201,13 +213,12 @@ public class BookingResource {
             booking.setUser(user);
 
             em.persist(booking);
-
-            this.processSubscriptionHook(bookingRequestDTO.getConcertId());
-
             em.getTransaction().commit();
         } finally {
             em.close();
         }
+
+        this.processSubscriptionHook(bookingRequestDTO.getConcertId());
 
         Response response = Response.created(URI.create("/concert-service/bookings/" + booking.getId())).build();
         return response;
@@ -216,8 +227,11 @@ public class BookingResource {
     @POST
     @Path("/subscribe/concertInfo")
     @Consumes(MediaType.APPLICATION_JSON)
+    // produces annotation necessary here even though 'processSubscriptionHook' is calling resume
     @Produces(MediaType.APPLICATION_JSON)
     public void subscribe(@Suspended AsyncResponse response, @CookieParam(Config.AUTH_COOKIE) Cookie cookie, ConcertInfoSubscriptionDTO concertInfoSubscriptionDTO) {
+        EntityManager em =  persistenceManager.createEntityManager();
+
         try {
             em.getTransaction().begin();
             LOGGER.info("inside the subscribe method");
@@ -228,7 +242,7 @@ public class BookingResource {
 
             String authToken = cookie.getValue();
 
-            User user = this.getUserByAuthTokenIfExists(authToken);
+            User user = this.getUserByAuthTokenIfExists(authToken, em);
 
             if (user == null) {
                 response.resume(Response.status(Response.Status.FORBIDDEN).build());
@@ -264,45 +278,45 @@ public class BookingResource {
     //TODO make this actually be wrapped inside a new transaction
     // run this code after transaction closed for createBooking
     private void processSubscriptionHook(long concertId) {
-        LOGGER.info("running the subscription hook");
-        LOGGER.info("there are " + BookingResource.activeConcertSubscriptions.size() + " number of subscriptions");
-        List<Subscription> subscriptions = BookingResource.activeConcertSubscriptions.get(concertId);
+        EntityManager em =  persistenceManager.createEntityManager();
 
-        if (subscriptions == null) {
-            LOGGER.info("subscriptions is null for id: " + concertId);
-            return;
-        }
+        try {
+            em.getTransaction().begin();
+            List<Subscription> subscriptions = BookingResource.activeConcertSubscriptions.get(concertId);
 
-        LOGGER.info("there exists subscriptions");
-
-        for (Subscription subscription : subscriptions) {
-            LocalDateTime targetdate = subscription.getInfo().getDate();
-            
-            TypedQuery<Seat> seatQuery = em.createQuery("select s from Seat s where s.date=:targetDate and s.isBooked=:status", Seat.class);
-            seatQuery.setParameter("targetDate", targetdate);
-            seatQuery.setParameter("status", false);
-
-            int numAvailableSeats = seatQuery.getResultList().size();
-
-            // if we have 120 seats and the threshold is 90% (108), then we notify when there is less than 120-108 = 12 seats left
-            double percentage = subscription.getInfo().getPercentageBooked() / (double) 100;
-
-            int threshold = (int) (THEATRE_CAPACITY - (percentage * THEATRE_CAPACITY));
-
-            if (subscription.getInfo().getConcertId() == 1) {
-                LOGGER.info("num available seats is: " + numAvailableSeats);
-                LOGGER.info("threshold is: " + threshold);
+            if (subscriptions == null) {
+                return;
             }
 
-            if (numAvailableSeats < threshold) {
-                AsyncResponse response = subscription.getResponse();
-                response.resume(new ConcertInfoNotificationDTO(numAvailableSeats));
+            for (Subscription subscription : subscriptions) {
+                LocalDateTime targetdate = subscription.getInfo().getDate();
+
+                TypedQuery<Seat> seatQuery = em.createQuery("select s from Seat s where s.date=:targetDate and s.isBooked=:status", Seat.class);
+                seatQuery.setParameter("targetDate", targetdate);
+                seatQuery.setParameter("status", false);
+
+                int numAvailableSeats = seatQuery.getResultList().size();
+
+                // if we have 120 seats and the threshold is 90% (108), then we notify when there is less than 120-108 = 12 seats left
+                double percentage = subscription.getInfo().getPercentageBooked() / (double) 100;
+
+                int threshold = (int) (THEATRE_CAPACITY - (percentage * THEATRE_CAPACITY));
+
+                if (numAvailableSeats < threshold) {
+                    AsyncResponse response = subscription.getResponse();
+                    response.resume(new ConcertInfoNotificationDTO(numAvailableSeats));
+                }
             }
+
+            em.getTransaction().commit();
+        } finally {
+            em.close();
         }
+
 
     }
 
-    private User getUserByAuthTokenIfExists(String authToken) {
+    private User getUserByAuthTokenIfExists(String authToken, EntityManager em) {
         TypedQuery<User> userQuery = em.createQuery("select u from User u where u.authToken = :authToken", User.class);
         userQuery.setParameter("authToken", authToken);
 
@@ -311,7 +325,7 @@ public class BookingResource {
         return user;
     }
 
-    private Seat getSeat(LocalDateTime targetDate, String seatLabel) {
+    private Seat getSeat(LocalDateTime targetDate, String seatLabel, EntityManager em) {
         TypedQuery<Seat> seatQuery = em.createQuery(
                 "select s from Seat s " +
                         "where s.date = :targetDate " +
