@@ -19,7 +19,11 @@ import java.util.UUID;
 @Path("/concert-service/login")
 public class LoginResource {
     private static Logger LOGGER = LoggerFactory.getLogger(ConcertResource.class);
-    private EntityManager em = PersistenceManager.instance().createEntityManager();
+    private PersistenceManager persistenceManager;
+
+    public LoginResource() {
+        this.persistenceManager = PersistenceManager.instance();
+    }
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -27,6 +31,8 @@ public class LoginResource {
         // check if the user is in the database
         User user;
         Response response;
+
+        EntityManager em =  persistenceManager.createEntityManager();
         try {
             em.getTransaction().begin();
             TypedQuery<User> userQuery = em.createQuery(

@@ -19,7 +19,11 @@ import java.util.stream.Collectors;
 @Path("/concert-service/concerts")
 public class ConcertResource {
     private static Logger LOGGER = LoggerFactory.getLogger(ConcertResource.class);
-    private EntityManager em = PersistenceManager.instance().createEntityManager();
+    private PersistenceManager persistenceManager;
+
+    public ConcertResource () {
+        this.persistenceManager = PersistenceManager.instance();
+    }
     
     @GET
     @Path("{id}")
@@ -28,6 +32,7 @@ public class ConcertResource {
         LOGGER.info("Retrieving concert with id: " + id);
         
         ConcertDTO dtoConcert;
+        EntityManager em = persistenceManager.createEntityManager();
         try {
             em.getTransaction().begin();
             TypedQuery<Concert> concertQuery = em.createQuery("select c from Concert c where c.id = :targetId", Concert.class);
@@ -63,6 +68,7 @@ public class ConcertResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAllConcerts() {
         GenericEntity<List<ConcertDTO>> entity;
+        EntityManager em = persistenceManager.createEntityManager();
         try {
             em.getTransaction().begin();
             TypedQuery<Concert> concertQuery = em.createQuery("select c from Concert c", Concert.class);
@@ -87,6 +93,7 @@ public class ConcertResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getSummaries() {
         GenericEntity<List<ConcertSummaryDTO>> entity;
+        EntityManager em = persistenceManager.createEntityManager();
         try {
             em.getTransaction().begin();
             TypedQuery<Concert> concertQuery = em.createQuery("select c from Concert c", Concert.class);

@@ -19,13 +19,19 @@ import java.util.stream.Collectors;
 
 @Path("/concert-service/performers")
 public class PerformerResource {
-    private EntityManager em = PersistenceManager.instance().createEntityManager();
+    private PersistenceManager persistenceManager;
+
+    public PerformerResource () {
+        this.persistenceManager = PersistenceManager.instance();
+    }
 
     @GET
     @Path("{id}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getPerformer(@PathParam("id") long id) {
         PerformerDTO dtoPerformer;
+
+        EntityManager em = persistenceManager.createEntityManager();
 
         try {
             em.getTransaction().begin();
@@ -46,6 +52,7 @@ public class PerformerResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAllPerformers() {
         GenericEntity<List<PerformerDTO>> entity;
+        EntityManager em =  persistenceManager.createEntityManager();
 
         try {
             em.getTransaction().begin();

@@ -22,7 +22,11 @@ import java.util.stream.Collectors;
 @Path("/concert-service/seats")
 public class SeatResource {
     private static Logger LOGGER = LoggerFactory.getLogger(ConcertResource.class);
-    private EntityManager em = PersistenceManager.instance().createEntityManager();
+    private PersistenceManager persistenceManager;
+
+    public SeatResource() {
+        this.persistenceManager = PersistenceManager.instance();
+    }
 
     @GET
     @Path("{time}")
@@ -30,6 +34,8 @@ public class SeatResource {
     public Response getSeats(@PathParam("time") LocalDateTimeParam dateParam, @QueryParam("status") BookingStatus status) {
         LocalDateTime localDateTime = dateParam.getLocalDateTime();
         GenericEntity<List<SeatDTO>> entity;
+        EntityManager em =  persistenceManager.createEntityManager();
+
         try {
             em.getTransaction().begin();
 
