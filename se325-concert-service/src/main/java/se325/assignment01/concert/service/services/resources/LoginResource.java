@@ -6,7 +6,6 @@ import se325.assignment01.concert.common.config.Config;
 import se325.assignment01.concert.common.dto.UserDTO;
 import se325.assignment01.concert.service.domain.User;
 import se325.assignment01.concert.service.services.PersistenceManager;
-
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
 import javax.ws.rs.Consumes;
@@ -41,7 +40,6 @@ public class LoginResource {
             user = userQuery.getResultList().stream().findFirst().orElse(null);
 
             if (user == null) {
-                LOGGER.info("No user found with details: " + userDTO.getUsername() + " " + userDTO.getPassword());
                 response = Response.status(Response.Status.UNAUTHORIZED).build();
             } else {
                 String uuid = UUID.randomUUID().toString();

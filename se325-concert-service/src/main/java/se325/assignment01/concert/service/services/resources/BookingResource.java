@@ -234,7 +234,6 @@ public class BookingResource {
 
         try {
             em.getTransaction().begin();
-            LOGGER.info("inside the subscribe method");
 
             if (cookie == null) {
                 response.resume(Response.status(Response.Status.UNAUTHORIZED).build());
@@ -266,9 +265,7 @@ public class BookingResource {
             subscriptions.add(new Subscription(concertInfoSubscriptionDTO, response));
 
             BookingResource.activeConcertSubscriptions.put(targetConcertId, subscriptions);
-
-            LOGGER.info("subscribed for concert: " + targetConcertId + " there are" + BookingResource.activeConcertSubscriptions.size() +" number of subscriptions");
-
+            
             em.getTransaction().commit();
         } finally {
             em.close();

@@ -2,7 +2,6 @@ package se325.assignment01.concert.service.services.resources;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se325.assignment01.concert.common.dto.ConcertDTO;
 import se325.assignment01.concert.common.dto.SeatDTO;
 import se325.assignment01.concert.common.types.BookingStatus;
 import se325.assignment01.concert.service.domain.Seat;
@@ -57,8 +56,6 @@ public class SeatResource {
                 SeatDTO dtoSeat = SeatMapper.toDto(s);
                 return dtoSeat;
             }).collect(Collectors.toList());
-
-            LOGGER.info("number of seats is: " + seats.size());
 
             entity = new GenericEntity<List<SeatDTO>>(seats){};
             em.getTransaction().commit();

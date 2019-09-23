@@ -2,27 +2,18 @@ package se325.assignment01.concert.service.services.resources;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se325.assignment01.concert.common.config.Config;
 import se325.assignment01.concert.common.dto.*;
-import se325.assignment01.concert.common.types.BookingStatus;
 import se325.assignment01.concert.service.domain.Concert;
-import se325.assignment01.concert.service.domain.Performer;
-import se325.assignment01.concert.service.domain.Seat;
-import se325.assignment01.concert.service.domain.User;
-import se325.assignment01.concert.service.jaxrs.LocalDateTimeParam;
 import se325.assignment01.concert.service.mapper.ConcertMapper;
 import se325.assignment01.concert.service.mapper.PerformerMapper;
 import se325.assignment01.concert.service.services.PersistenceManager;
-
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
 import javax.ws.rs.*;
 import javax.ws.rs.core.*;
-import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Path("/concert-service/concerts")
@@ -35,14 +26,14 @@ public class ConcertResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getConcert(@PathParam("id") long id) {
         LOGGER.info("Retrieving concert with id: " + id);
-        Concert concert;
+        
         ConcertDTO dtoConcert;
         try {
             em.getTransaction().begin();
             TypedQuery<Concert> concertQuery = em.createQuery("select c from Concert c where c.id = :targetId", Concert.class);
             concertQuery.setParameter("targetId", id);
 
-            concert = concertQuery.getResultList().stream().findFirst().orElse(null);
+            Concert concert = concertQuery.getResultList().stream().findFirst().orElse(null);
 
             if (concert == null) {
                 return Response.status(Response.Status.NOT_FOUND).build();
@@ -61,7 +52,6 @@ public class ConcertResource {
             dtoConcert.setPerformers(dtoPerformers);
             dtoConcert.setDates(dtoDates);
             
-            LOGGER.info("the dto concert is is: " + dtoConcert.getId());
         } finally {
             em.close();
         }
