@@ -19,7 +19,7 @@ public class Booking {
     private long id;
     private long concertId;
     private LocalDateTime date;
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
     private List<Seat> seats = new ArrayList<>();
     @ManyToOne(cascade = CascadeType.PERSIST)
     private User user;

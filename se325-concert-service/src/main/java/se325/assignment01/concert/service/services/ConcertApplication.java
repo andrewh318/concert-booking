@@ -20,6 +20,7 @@ public class ConcertApplication extends Application {
     private Set<Class<?>> classes = new HashSet<>();
 
     public ConcertApplication() {
+        // REST API is split across multiple resource classes for readability and maintainability
         classes.add(TestResource.class);
         classes.add(ConcertResource.class);
         classes.add(PerformerResource.class);

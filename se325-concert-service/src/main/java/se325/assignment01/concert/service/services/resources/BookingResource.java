@@ -15,6 +15,7 @@ import se325.assignment01.concert.service.mapper.BookingMapper;
 import se325.assignment01.concert.service.services.PersistenceManager;
 
 import javax.persistence.EntityManager;
+import javax.persistence.LockModeType;
 import javax.persistence.TypedQuery;
 import javax.ws.rs.*;
 import javax.ws.rs.container.AsyncResponse;
@@ -318,21 +319,7 @@ public class BookingResource {
 
         return user;
     }
-
-    private Seat getSeat(LocalDateTime targetDate, String seatLabel, EntityManager em) {
-        TypedQuery<Seat> seatQuery = em.createQuery(
-                "select s from Seat s " +
-                        "where s.date = :targetDate " +
-                        "and s.label = :seatLabel ",
-                Seat.class
-        );
-        seatQuery.setParameter("targetDate", targetDate);
-        seatQuery.setParameter("seatLabel", seatLabel);
-
-        Seat seat = seatQuery.getResultList().stream().findFirst().orElse(null);
-
-        return seat;
-    }
+    
 }
 
 class Subscription {
