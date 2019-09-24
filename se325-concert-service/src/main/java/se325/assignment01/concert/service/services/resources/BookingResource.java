@@ -175,24 +175,16 @@ public class BookingResource {
 
             List<String> seatLabels = bookingRequestDTO.getSeatLabels();
 
-            // currently doing multiple database calls
-            // alternative: https://thoughts-on-java.org/fetch-multiple-entities-id-hibernate/
-            boolean allAvailable = true;
+            // rather than making one query per seat label, we can take advantage of the 'in' command
+            TypedQuery<Seat> seatQuery = em.createQuery("select s from Seat s where s.label in :seats and s.date = :targetDate and s.isBooked = :targetStatus", Seat.class);
+            seatQuery.setParameter("seats", seatLabels);
+            seatQuery.setParameter("targetDate", targetDate);
+            seatQuery.setParameter("targetStatus", false);
 
-            List<Seat> seatsToBook = new ArrayList<>();
-            for (String seatLabel : seatLabels) {
-                Seat seat = this.getSeat(targetDate, seatLabel, em);
-
-                if (seat == null || seat.isBooked() == true) {
-                    allAvailable = false;
-                    break;
-                }
-
-                seatsToBook.add(seat);
-            }
+            List<Seat> seatsToBook = seatQuery.getResultList();
 
             // return error message if not all seats are available
-            if (!allAvailable) {
+            if (!(seatsToBook.size() == seatLabels.size())) {
                 return Response.status(Response.Status.FORBIDDEN).build();
             }
             
