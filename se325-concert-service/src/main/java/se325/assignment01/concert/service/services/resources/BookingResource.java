@@ -177,6 +177,8 @@ public class BookingResource {
                 .setParameter("targetDate", targetDate)
                 .setParameter("targetStatus", false);
 
+            seatQuery.setLockMode(LockModeType.OPTIMISTIC);
+
             List<Seat> seatsToBook = seatQuery.getResultList();
 
             // return error message if not all seats are available

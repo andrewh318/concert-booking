@@ -14,6 +14,8 @@ public class Seat {
 	private boolean isBooked;
 	private LocalDateTime date;
 	private BigDecimal price;
+	@Version
+	private int version;
 
 	public Seat() {}
 
