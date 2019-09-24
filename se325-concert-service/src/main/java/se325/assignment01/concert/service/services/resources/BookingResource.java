@@ -54,6 +54,8 @@ public class BookingResource {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
+        LOGGER.info("Getting all bookings");
+
         GenericEntity<List<BookingDTO>> entity;
 
         EntityManager em =  persistenceManager.createEntityManager();
@@ -93,7 +95,6 @@ public class BookingResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getBooking(@CookieParam(Config.AUTH_COOKIE) Cookie cookie, @PathParam("id") long id) {
         if (cookie == null) {
-            LOGGER.info("no cookie for get booking");
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
@@ -143,6 +144,8 @@ public class BookingResource {
         Booking booking;
         EntityManager em =  persistenceManager.createEntityManager();
 
+        LOGGER.info("Creating a booking for concert " + bookingRequestDTO.getConcertId());
+
         try {
             em.getTransaction().begin();
 
@@ -180,7 +183,6 @@ public class BookingResource {
                 Seat seat = this.getSeat(targetDate, seatLabel, em);
 
                 if (seat == null || seat.isBooked() == true) {
-                    LOGGER.info("Unavailable seat is " + seatLabel);
                     allAvailable = false;
                     break;
                 }
@@ -188,7 +190,6 @@ public class BookingResource {
 
             // return error message if not all seats are available
             if (!allAvailable) {
-                LOGGER.info("All seats not available");
                 return Response.status(Response.Status.FORBIDDEN).build();
             }
 
@@ -285,6 +286,8 @@ public class BookingResource {
                 return;
             }
 
+            List<Subscription> updatedSubscriptions = new ArrayList<>();
+
             for (Subscription subscription : subscriptions) {
                 LocalDateTime targetdate = subscription.getInfo().getDate();
 
@@ -302,8 +305,12 @@ public class BookingResource {
                 if (numAvailableSeats < threshold) {
                     AsyncResponse response = subscription.getResponse();
                     response.resume(new ConcertInfoNotificationDTO(numAvailableSeats));
+                } else {
+                    updatedSubscriptions.add(subscription);
                 }
             }
+
+            BookingResource.activeConcertSubscriptions.put(concertId, updatedSubscriptions);
 
             em.getTransaction().commit();
         } finally {
