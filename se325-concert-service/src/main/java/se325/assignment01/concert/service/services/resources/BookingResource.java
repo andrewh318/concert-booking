@@ -65,8 +65,7 @@ public class BookingResource {
             em.getTransaction().begin();
             
             // authenticate user
-            String authToken = cookie.getValue();
-            User user = this.getUserByAuthTokenIfExists(authToken, em);
+            User user = this.getUserByAuthTokenIfExists(cookie, em);
 
             if (user == null) {
                 return Response.status(Response.Status.FORBIDDEN).build();
@@ -106,10 +105,8 @@ public class BookingResource {
         try {
             em.getTransaction().begin();
 
-            String authToken = cookie.getValue();
-
             // get user making request
-            User user = this.getUserByAuthTokenIfExists(authToken, em);
+            User user = this.getUserByAuthTokenIfExists(cookie, em);
 
             if (user == null) {
                 return Response.status(Response.Status.FORBIDDEN).build();
@@ -155,10 +152,8 @@ public class BookingResource {
                 return Response.status(Response.Status.UNAUTHORIZED).build();
             }
 
-            String authToken = cookie.getValue();
-
             // find user making the booking
-            User user = this.getUserByAuthTokenIfExists(authToken, em);
+            User user = this.getUserByAuthTokenIfExists(cookie, em);
 
             if (user == null) {
                 return Response.status(Response.Status.FORBIDDEN).build();
@@ -231,9 +226,7 @@ public class BookingResource {
                 response.resume(Response.status(Response.Status.UNAUTHORIZED).build());
             }
 
-            String authToken = cookie.getValue();
-
-            User user = this.getUserByAuthTokenIfExists(authToken, em);
+            User user = this.getUserByAuthTokenIfExists(cookie, em);
 
             if (user == null) {
                 response.resume(Response.status(Response.Status.FORBIDDEN).build());
@@ -311,7 +304,9 @@ public class BookingResource {
 
     }
 
-    private User getUserByAuthTokenIfExists(String authToken, EntityManager em) {
+    private User getUserByAuthTokenIfExists(Cookie cookie, EntityManager em) {
+        String authToken = cookie.getValue();
+        
         TypedQuery<User> userQuery = em.createQuery("select u from User u where u.authToken = :authToken", User.class);
         userQuery.setParameter("authToken", authToken);
 
