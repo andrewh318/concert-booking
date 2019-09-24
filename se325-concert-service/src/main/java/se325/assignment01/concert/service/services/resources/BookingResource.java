@@ -72,8 +72,8 @@ public class BookingResource {
             }
 
             // get all bookings associated with user
-            TypedQuery<Booking> bookingQuery = em.createQuery("select b from Booking b where b.user.id = :userId", Booking.class);
-            bookingQuery.setParameter("userId", user.getId());
+            TypedQuery<Booking> bookingQuery = em.createQuery("select b from Booking b where b.user.id = :userId", Booking.class)
+                .setParameter("userId", user.getId());
 
             List<BookingDTO> bookingRequests = bookingQuery.getResultList().stream().map(b -> {
                 return BookingMapper.toDto(b);
@@ -172,10 +172,10 @@ public class BookingResource {
             List<String> seatLabels = bookingRequestDTO.getSeatLabels();
 
             // rather than making one query per seat label, we can take advantage of the 'in' command
-            TypedQuery<Seat> seatQuery = em.createQuery("select s from Seat s where s.label in :seats and s.date = :targetDate and s.isBooked = :targetStatus", Seat.class);
-            seatQuery.setParameter("seats", seatLabels);
-            seatQuery.setParameter("targetDate", targetDate);
-            seatQuery.setParameter("targetStatus", false);
+            TypedQuery<Seat> seatQuery = em.createQuery("select s from Seat s where s.label in :seats and s.date = :targetDate and s.isBooked = :targetStatus", Seat.class)
+                .setParameter("seats", seatLabels)
+                .setParameter("targetDate", targetDate)
+                .setParameter("targetStatus", false);
 
             List<Seat> seatsToBook = seatQuery.getResultList();
 
@@ -236,8 +236,8 @@ public class BookingResource {
             long targetConcertId = concertInfoSubscriptionDTO.getConcertId();
             LocalDateTime targetDate = concertInfoSubscriptionDTO.getDate();
 
-            TypedQuery<Concert> concertQuery = em.createQuery("select c from Concert c where c.id = :targetConcertId", Concert.class);
-            concertQuery.setParameter("targetConcertId", targetConcertId);
+            TypedQuery<Concert> concertQuery = em.createQuery("select c from Concert c where c.id = :targetConcertId", Concert.class)
+                .setParameter("targetConcertId", targetConcertId);
 
             Concert concert = concertQuery.getResultList().stream().findFirst().orElse(null);
 
@@ -275,9 +275,9 @@ public class BookingResource {
             for (Subscription subscription : subscriptions) {
                 LocalDateTime targetdate = subscription.getInfo().getDate();
 
-                TypedQuery<Seat> seatQuery = em.createQuery("select s from Seat s where s.date=:targetDate and s.isBooked=:status", Seat.class);
-                seatQuery.setParameter("targetDate", targetdate);
-                seatQuery.setParameter("status", false);
+                TypedQuery<Seat> seatQuery = em.createQuery("select s from Seat s where s.date=:targetDate and s.isBooked=:status", Seat.class)
+                    .setParameter("targetDate", targetdate)
+                    .setParameter("status", false);
 
                 int numAvailableSeats = seatQuery.getResultList().size();
 
@@ -307,8 +307,8 @@ public class BookingResource {
     private User getUserByAuthTokenIfExists(Cookie cookie, EntityManager em) {
         String authToken = cookie.getValue();
         
-        TypedQuery<User> userQuery = em.createQuery("select u from User u where u.authToken = :authToken", User.class);
-        userQuery.setParameter("authToken", authToken);
+        TypedQuery<User> userQuery = em.createQuery("select u from User u where u.authToken = :authToken", User.class)
+            .setParameter("authToken", authToken);
 
         User user = userQuery.getResultList().stream().findFirst().orElse(null);
 

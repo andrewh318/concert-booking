@@ -38,9 +38,9 @@ public class LoginResource {
             TypedQuery<User> userQuery = em.createQuery(
                     "select u from User u where u.username = :targetUserName and u.password = :targetPassword",
                     User.class
-            );
-            userQuery.setParameter("targetUserName", userDTO.getUsername());
-            userQuery.setParameter("targetPassword", userDTO.getPassword());
+            )
+                .setParameter("targetUserName", userDTO.getUsername())
+                .setParameter("targetPassword", userDTO.getPassword());
 
             // calling getSingleResult throws an exception when no entry found which causes problems
             user = userQuery.getResultList().stream().findFirst().orElse(null);

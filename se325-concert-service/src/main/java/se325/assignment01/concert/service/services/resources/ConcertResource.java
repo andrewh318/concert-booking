@@ -35,10 +35,8 @@ public class ConcertResource {
         EntityManager em = persistenceManager.createEntityManager();
         try {
             em.getTransaction().begin();
-            TypedQuery<Concert> concertQuery = em.createQuery("select c from Concert c where c.id = :targetId", Concert.class);
-            concertQuery.setParameter("targetId", id);
 
-            Concert concert = concertQuery.getResultList().stream().findFirst().orElse(null);
+            Concert concert = em.find(Concert.class, id);
 
             if (concert == null) {
                 return Response.status(Response.Status.NOT_FOUND).build();
