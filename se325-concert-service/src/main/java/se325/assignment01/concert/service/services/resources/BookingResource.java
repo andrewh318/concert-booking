@@ -148,7 +148,6 @@ public class BookingResource {
             em.getTransaction().begin();
 
             if (cookie == null) {
-                LOGGER.info("Unauthorized request");
                 return Response.status(Response.Status.UNAUTHORIZED).build();
             }
 

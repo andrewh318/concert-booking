@@ -17,10 +17,13 @@ public class Booking {
     @Id
     @GeneratedValue(strategy= GenerationType.IDENTITY)
     private long id;
+    
     private long concertId;
     private LocalDateTime date;
-    @ManyToMany(cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
+    
+    @OneToMany(cascade = CascadeType.PERSIST)
     private List<Seat> seats = new ArrayList<>();
+    
     @ManyToOne(cascade = CascadeType.PERSIST)
     private User user;
 
@@ -39,9 +42,7 @@ public class Booking {
     public void setConcertId(long concertId) {
         this.concertId = concertId;
     }
-
-    @JsonSerialize(using = LocalDateTimeSerializer.class)
-    @JsonDeserialize(using = LocalDateTimeDeserializer.class)
+    
     public LocalDateTime getDate() {
         return date;
     }

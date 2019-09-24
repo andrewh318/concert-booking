@@ -18,7 +18,7 @@ public class Performer {
     private Genre genre;
     @Column(length = 1024)
     private String blurb;
-    @ManyToMany(mappedBy = "performers", cascade = CascadeType.PERSIST)
+    @ManyToMany(mappedBy = "performers")
     private Set<Concert> concerts;
 
     public Performer() {}

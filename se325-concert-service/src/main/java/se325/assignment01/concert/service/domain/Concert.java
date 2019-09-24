@@ -18,12 +18,16 @@ public class Concert {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
+    
     @Column(name = "TITLE")
     private String title;
+    
     @Column(name = "IMAGE_NAME")
     private String imageName;
+
     @Column(length = 1024, name = "BLURB")
     private String blurb;
+    
     @ElementCollection
     @CollectionTable(
             name="CONCERT_DATES",
@@ -32,6 +36,7 @@ public class Concert {
     @Column (name = "DATE")
     private Set<LocalDateTime> dates;
 
+    // subselect fetch strategy used to remove the number of DB calls when looping through the performers of a fetched concert
     @ManyToMany(cascade = CascadeType.PERSIST, fetch=FetchType.LAZY)
     @Fetch(FetchMode.SUBSELECT)
     @JoinTable(

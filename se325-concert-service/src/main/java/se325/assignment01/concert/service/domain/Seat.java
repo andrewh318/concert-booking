@@ -10,6 +10,7 @@ public class Seat {
 	@Id
 	@GeneratedValue(strategy =  GenerationType.IDENTITY)
 	private Long id;
+	
 	private String label;
 	private boolean isBooked;
 	private LocalDateTime date;
