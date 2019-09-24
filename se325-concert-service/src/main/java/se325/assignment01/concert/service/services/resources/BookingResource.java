@@ -283,10 +283,7 @@ public class BookingResource {
 
                 int numAvailableSeats = seatQuery.getResultList().size();
 
-                // if we have 120 seats and the threshold is 90% (108), then we notify when there is less than 120-108 = 12 seats left
-                double percentage = subscription.getInfo().getPercentageBooked() / (double) 100;
-
-                int threshold = (int) (THEATRE_CAPACITY - (percentage * THEATRE_CAPACITY));
+                int threshold = this.getConcertThreshold(THEATRE_CAPACITY, subscription.getInfo().getPercentageBooked());
 
                 if (numAvailableSeats < threshold) {
                     AsyncResponse response = subscription.getResponse();
@@ -302,8 +299,13 @@ public class BookingResource {
         } finally {
             em.close();
         }
-
-
+    }
+    
+    // if we have 120 seats and the threshold is 90% (108), then we notify when there is less than 120-108 = 12 seats left
+    private int getConcertThreshold (int capacity, int percentageBooked) {
+        double percentage = percentageBooked / (double) 100;
+        int threshold = (int) (capacity - (percentage * capacity));
+        return threshold;
     }
 
     private User getUserByAuthTokenIfExists(Cookie cookie, EntityManager em) {
