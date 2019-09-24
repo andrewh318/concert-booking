@@ -179,6 +179,7 @@ public class BookingResource {
             // alternative: https://thoughts-on-java.org/fetch-multiple-entities-id-hibernate/
             boolean allAvailable = true;
 
+            List<Seat> seatsToBook = new ArrayList<>();
             for (String seatLabel : seatLabels) {
                 Seat seat = this.getSeat(targetDate, seatLabel, em);
 
@@ -186,21 +187,18 @@ public class BookingResource {
                     allAvailable = false;
                     break;
                 }
+
+                seatsToBook.add(seat);
             }
 
             // return error message if not all seats are available
             if (!allAvailable) {
                 return Response.status(Response.Status.FORBIDDEN).build();
             }
-
-            List<Seat> bookedSeats = new ArrayList<>();
             
             // mark all seats as booked
-            for (String seatLabel : seatLabels) {
-                Seat seat = this.getSeat(targetDate, seatLabel, em);
+            for (Seat seat : seatsToBook) {
                 seat.setBooked(true);
-                bookedSeats.add(seat);
-                
                 em.merge(seat);
             }
 
@@ -208,7 +206,7 @@ public class BookingResource {
             booking = new Booking(
                     concert.getId(),
                     targetDate,
-                    bookedSeats
+                    seatsToBook
             );
 
             booking.setUser(user);
