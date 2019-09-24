@@ -175,7 +175,7 @@ public class BookingResource {
             em.close();
         }
 
-        this.processSubscriptionHook(bookingRequestDTO.getConcertId());
+        this.processSubscriptionHook(bookingRequestDTO.getConcertId(), bookingRequestDTO.getDate());
 
         Response response = Response.created(URI.create("/concert-service/bookings/" + booking.getId())).build();
         return response;
@@ -226,7 +226,7 @@ public class BookingResource {
 
     //TODO make this actually be wrapped inside a new transaction
     // run this code after transaction closed for createBooking
-    private void processSubscriptionHook(long concertId) {
+    private void processSubscriptionHook(long concertId, LocalDateTime targetDate) {
         EntityManager em =  persistenceManager.createEntityManager();
 
         try {
@@ -237,22 +237,25 @@ public class BookingResource {
                 return;
             }
 
+            TypedQuery<Seat> seatQuery = em.createQuery("select s from Seat s where s.date=:targetDate and s.isBooked=:status", Seat.class)
+                    .setParameter("targetDate", targetDate)
+                    .setParameter("status", false);
+
+            int numAvailableSeats = seatQuery.getResultList().size();
+
             List<Subscription> updatedSubscriptions = new ArrayList<>();
 
             for (Subscription subscription : subscriptions) {
-                LocalDateTime targetdate = subscription.getInfo().getDate();
+                LocalDateTime date = subscription.getInfo().getDate();
 
-                TypedQuery<Seat> seatQuery = em.createQuery("select s from Seat s where s.date=:targetDate and s.isBooked=:status", Seat.class)
-                    .setParameter("targetDate", targetdate)
-                    .setParameter("status", false);
+                if (date.isEqual(targetDate)) {
+                    if (isThresholdExceeded(subscription.getInfo().getPercentageBooked(), numAvailableSeats, THEATRE_CAPACITY)) {
+                        AsyncResponse response = subscription.getResponse();
+                        response.resume(new ConcertInfoNotificationDTO(numAvailableSeats));
+                    } else {
+                        updatedSubscriptions.add(subscription);
+                    }
 
-                int numAvailableSeats = seatQuery.getResultList().size();
-
-                int threshold = this.getConcertThreshold(THEATRE_CAPACITY, subscription.getInfo().getPercentageBooked());
-
-                if (numAvailableSeats < threshold) {
-                    AsyncResponse response = subscription.getResponse();
-                    response.resume(new ConcertInfoNotificationDTO(numAvailableSeats));
                 } else {
                     updatedSubscriptions.add(subscription);
                 }
@@ -264,6 +267,11 @@ public class BookingResource {
         } finally {
             em.close();
         }
+    }
+
+    private boolean isThresholdExceeded(int threshold, int numAvailable, int totalCapacity) {
+        boolean isExceeded = threshold < ((double) (totalCapacity - numAvailable) / totalCapacity) * 100;
+        return isExceeded;
     }
 
     private Booking attemptToBookSeats(BookingRequestDTO bookingRequestDTO, User user) {
@@ -314,13 +322,6 @@ public class BookingResource {
         }
 
         return booking;
-    }
-    
-    // if we have 120 seats and the threshold is 90% (108), then we notify when there is less than 120-108 = 12 seats left
-    private int getConcertThreshold (int capacity, int percentageBooked) {
-        double percentage = percentageBooked / (double) 100;
-        int threshold = (int) (capacity - (percentage * capacity));
-        return threshold;
     }
 
     private User getUserByAuthTokenIfExists(Cookie cookie) {
