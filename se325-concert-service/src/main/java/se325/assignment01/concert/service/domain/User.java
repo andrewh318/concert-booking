@@ -11,6 +11,7 @@ public class User {
     private String username;
     private String password;
     private String authToken;
+    @Version
     private Long version;
 
     public User() {}

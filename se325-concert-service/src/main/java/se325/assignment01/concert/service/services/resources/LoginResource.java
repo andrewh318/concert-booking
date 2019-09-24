@@ -7,6 +7,7 @@ import se325.assignment01.concert.common.dto.UserDTO;
 import se325.assignment01.concert.service.domain.User;
 import se325.assignment01.concert.service.services.PersistenceManager;
 import javax.persistence.EntityManager;
+import javax.persistence.LockModeType;
 import javax.persistence.TypedQuery;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.POST;
@@ -41,6 +42,8 @@ public class LoginResource {
             )
                 .setParameter("targetUserName", userDTO.getUsername())
                 .setParameter("targetPassword", userDTO.getPassword());
+
+            userQuery.setLockMode(LockModeType.OPTIMISTIC);
 
             // calling getSingleResult throws an exception when no entry found which causes problems
             user = userQuery.getResultList().stream().findFirst().orElse(null);
