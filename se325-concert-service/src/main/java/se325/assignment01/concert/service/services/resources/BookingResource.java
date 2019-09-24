@@ -14,9 +14,7 @@ import se325.assignment01.concert.service.domain.User;
 import se325.assignment01.concert.service.mapper.BookingMapper;
 import se325.assignment01.concert.service.services.PersistenceManager;
 
-import javax.persistence.EntityManager;
-import javax.persistence.LockModeType;
-import javax.persistence.TypedQuery;
+import javax.persistence.*;
 import javax.ws.rs.*;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
@@ -65,7 +63,7 @@ public class BookingResource {
             em.getTransaction().begin();
             
             // authenticate user
-            User user = this.getUserByAuthTokenIfExists(cookie, em);
+            User user = this.getUserByAuthTokenIfExists(cookie);
 
             if (user == null) {
                 return Response.status(Response.Status.FORBIDDEN).build();
@@ -106,7 +104,7 @@ public class BookingResource {
             em.getTransaction().begin();
 
             // get user making request
-            User user = this.getUserByAuthTokenIfExists(cookie, em);
+            User user = this.getUserByAuthTokenIfExists(cookie);
 
             if (user == null) {
                 return Response.status(Response.Status.FORBIDDEN).build();
@@ -152,7 +150,7 @@ public class BookingResource {
             }
 
             // find user making the booking
-            User user = this.getUserByAuthTokenIfExists(cookie, em);
+            User user = this.getUserByAuthTokenIfExists(cookie);
 
             if (user == null) {
                 return Response.status(Response.Status.FORBIDDEN).build();
@@ -168,40 +166,11 @@ public class BookingResource {
                 return Response.status(Response.Status.BAD_REQUEST).build();
             }
 
-            List<String> seatLabels = bookingRequestDTO.getSeatLabels();
+            booking = this.attemptToBookSeats(bookingRequestDTO, user);
 
-            // rather than making one query per seat label, we can take advantage of the 'in' command
-            TypedQuery<Seat> seatQuery = em.createQuery("select s from Seat s where s.label in :seats and s.date = :targetDate and s.isBooked = :targetStatus", Seat.class)
-                .setParameter("seats", seatLabels)
-                .setParameter("targetDate", targetDate)
-                .setParameter("targetStatus", false);
-
-            seatQuery.setLockMode(LockModeType.OPTIMISTIC);
-
-            List<Seat> seatsToBook = seatQuery.getResultList();
-
-            // return error message if not all seats are available
-            if (!(seatsToBook.size() == seatLabels.size())) {
+            if (booking == null) {
                 return Response.status(Response.Status.FORBIDDEN).build();
             }
-            
-            // mark all seats as booked
-            for (Seat seat : seatsToBook) {
-                seat.setBooked(true);
-                em.merge(seat);
-            }
-
-            // create new booking object
-            booking = new Booking(
-                    concert.getId(),
-                    targetDate,
-                    seatsToBook
-            );
-
-            booking.setUser(user);
-
-            em.persist(booking);
-            em.getTransaction().commit();
         } finally {
             em.close();
         }
@@ -227,7 +196,7 @@ public class BookingResource {
                 response.resume(Response.status(Response.Status.UNAUTHORIZED).build());
             }
 
-            User user = this.getUserByAuthTokenIfExists(cookie, em);
+            User user = this.getUserByAuthTokenIfExists(cookie);
 
             if (user == null) {
                 response.resume(Response.status(Response.Status.FORBIDDEN).build());
@@ -237,10 +206,7 @@ public class BookingResource {
             long targetConcertId = concertInfoSubscriptionDTO.getConcertId();
             LocalDateTime targetDate = concertInfoSubscriptionDTO.getDate();
 
-            TypedQuery<Concert> concertQuery = em.createQuery("select c from Concert c where c.id = :targetConcertId", Concert.class)
-                .setParameter("targetConcertId", targetConcertId);
-
-            Concert concert = concertQuery.getResultList().stream().findFirst().orElse(null);
+            Concert concert = em.find(Concert.class, targetConcertId);
 
             if (concert == null || !concert.getDates().contains(targetDate)) {
                 response.resume(Response.status(Response.Status.BAD_REQUEST).build());
@@ -299,6 +265,56 @@ public class BookingResource {
             em.close();
         }
     }
+
+    private Booking attemptToBookSeats(BookingRequestDTO bookingRequestDTO, User user) {
+        EntityManager em = this.persistenceManager.createEntityManager();
+        Booking booking = null;
+
+        try {
+            em.getTransaction().begin();;
+            List<String> seatLabels = bookingRequestDTO.getSeatLabels();
+
+            // rather than making one query per seat label, we can take advantage of the 'in' command
+            TypedQuery<Seat> seatQuery = em.createQuery("select s from Seat s where s.label in :seats and s.date = :targetDate and s.isBooked = :targetStatus", Seat.class)
+                    .setParameter("seats", bookingRequestDTO.getSeatLabels())
+                    .setParameter("targetDate", bookingRequestDTO.getDate())
+                    .setParameter("targetStatus", false);
+
+            seatQuery.setLockMode(LockModeType.OPTIMISTIC);
+
+            List<Seat> seatsToBook = seatQuery.getResultList();
+
+            // return error message if not all seats are available
+            if (!(seatsToBook.size() == seatLabels.size())) {
+                return null;
+            }
+
+            // mark all seats as booked
+            for (Seat seat : seatsToBook) {
+                seat.setBooked(true);
+                em.merge(seat);
+            }
+
+            // create new booking object
+            booking = new Booking(
+                    bookingRequestDTO.getConcertId(),
+                    bookingRequestDTO.getDate(),
+                    seatsToBook
+            );
+
+            booking.setUser(user);
+
+            em.persist(booking);
+            em.getTransaction().commit();
+        } catch (OptimisticLockException e) {
+            em.close();
+            this.attemptToBookSeats(bookingRequestDTO, user);
+        } finally{
+            em.close();
+        }
+
+        return booking;
+    }
     
     // if we have 120 seats and the threshold is 90% (108), then we notify when there is less than 120-108 = 12 seats left
     private int getConcertThreshold (int capacity, int percentageBooked) {
@@ -307,13 +323,21 @@ public class BookingResource {
         return threshold;
     }
 
-    private User getUserByAuthTokenIfExists(Cookie cookie, EntityManager em) {
-        String authToken = cookie.getValue();
-        
-        TypedQuery<User> userQuery = em.createQuery("select u from User u where u.authToken = :authToken", User.class)
-            .setParameter("authToken", authToken);
+    private User getUserByAuthTokenIfExists(Cookie cookie) {
+        EntityManager em = this.persistenceManager.createEntityManager();
+        User user;
+        try {
+            em.getTransaction().begin();
 
-        User user = userQuery.getResultList().stream().findFirst().orElse(null);
+            String authToken = cookie.getValue();
+
+            TypedQuery<User> userQuery = em.createQuery("select u from User u where u.authToken = :authToken", User.class)
+                    .setParameter("authToken", authToken);
+
+            user = userQuery.getResultList().stream().findFirst().orElse(null);
+        } finally {
+            em.close();
+        }
 
         return user;
     }

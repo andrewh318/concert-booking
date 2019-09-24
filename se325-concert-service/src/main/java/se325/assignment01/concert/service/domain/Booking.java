@@ -24,7 +24,7 @@ public class Booking {
     @OneToMany(cascade = CascadeType.PERSIST)
     private List<Seat> seats = new ArrayList<>();
     
-    @ManyToOne(cascade = CascadeType.PERSIST)
+    @ManyToOne
     private User user;
 
     public Booking(){}
@@ -74,4 +74,6 @@ public class Booking {
     public void setUser(User user) {
         this.user = user;
     }
+
+
 }
