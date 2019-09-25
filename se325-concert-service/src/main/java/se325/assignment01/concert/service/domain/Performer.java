@@ -18,8 +18,6 @@ public class Performer {
     private Genre genre;
     @Column(length = 1024)
     private String blurb;
-    @ManyToMany(mappedBy = "performers")
-    private Set<Concert> concerts;
 
     public Performer() {}
 
@@ -70,12 +68,5 @@ public class Performer {
     public void setBlurb(String blurb) {
         this.blurb = blurb;
     }
-
-    public Set<Concert> getConcerts() {
-        return concerts;
-    }
-
-    public void setConcerts(Set<Concert> concerts) {
-        this.concerts = concerts;
-    }
+    
 }

@@ -1,10 +1,7 @@
 package se325.assignment01.concert.service.domain;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.hibernate.annotations.Fetch;
-import se325.assignment01.concert.common.jackson.LocalDateTimeDeserializer;
-import se325.assignment01.concert.common.jackson.LocalDateTimeSerializer;
+import org.hibernate.annotations.FetchMode;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
@@ -21,7 +18,8 @@ public class Booking {
     private long concertId;
     private LocalDateTime date;
     
-    @OneToMany(cascade = CascadeType.PERSIST)
+    @OneToMany(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
+    @Fetch(FetchMode.SUBSELECT)
     private List<Seat> seats = new ArrayList<>();
     
     @ManyToOne

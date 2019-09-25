@@ -31,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Path("/concert-service")
-//TODO see if theres a better way to handle getting all the seat objects associated with seat labels 
 public class BookingResource {
     private static Logger LOGGER = LoggerFactory.getLogger(ConcertResource.class);
     public static final int THEATRE_CAPACITY = 120;
@@ -45,6 +44,11 @@ public class BookingResource {
          this.persistenceManager = PersistenceManager.instance();
     }
 
+    /**
+     * Retrieves all the bookings associated with a given user
+     * @param cookie Cookie identifying a specific user in the system
+     * @return JSON serialized array of BookingDTO objects
+     */
     @GET
     @Path("/bookings")
     @Produces(MediaType.APPLICATION_JSON)
@@ -88,6 +92,12 @@ public class BookingResource {
         return Response.ok(entity).build();
     }
 
+    /**
+     * Retrieves a booking by id. Only returns the booking if it is owned by the retrieving user.
+     * @param cookie Cookie identifying a specific user in the system
+     * @param id Id of booking that is being retrieved 
+     * @return
+     */
     @GET
     @Path("/bookings/{id}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -133,6 +143,12 @@ public class BookingResource {
         return Response.ok(dtoBooking).build();
     }
 
+    /**
+     * Creates a new booking for a user in the system given a valid concert and if all seats are available.
+     * @param cookie Cookie identifying a specific user in the system
+     * @param bookingRequestDTO Object representing information associated with the booking
+     * @return URI with the path of the new booking created if successful
+     */
     @POST
     @Path("/bookings")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -181,10 +197,17 @@ public class BookingResource {
         return response;
     }
 
+    /**
+     * Subscribes a user to a concert on a specific date- notifying them when the number of available seats falls below
+     * a specified threshold. The response is asynchronous so all active subscriptions are temporarily stored in map until
+     * the notification requirements are satisfied.
+     * @param response
+     * @param cookie Cookie identifying a specific user in the system
+     * @param concertInfoSubscriptionDTO Object representing information associated with the subscription
+     */
     @POST
     @Path("/subscribe/concertInfo")
     @Consumes(MediaType.APPLICATION_JSON)
-    // produces annotation necessary here even though 'processSubscriptionHook' is calling resume
     @Produces(MediaType.APPLICATION_JSON)
     public void subscribe(@Suspended AsyncResponse response, @CookieParam(Config.AUTH_COOKIE) Cookie cookie, ConcertInfoSubscriptionDTO concertInfoSubscriptionDTO) {
         EntityManager em =  persistenceManager.createEntityManager();
@@ -224,8 +247,12 @@ public class BookingResource {
         }
     }
 
-    //TODO make this actually be wrapped inside a new transaction
-    // run this code after transaction closed for createBooking
+    /**
+     * Hook method that executes every time a new booking is created. It checks all the subscribers for a given concert
+     * and sends a response if the available seats for the concert falls below the given threshold.
+     * @param concertId
+     * @param targetDate
+     */
     private void processSubscriptionHook(long concertId, LocalDateTime targetDate) {
         EntityManager em =  persistenceManager.createEntityManager();
 
@@ -241,17 +268,19 @@ public class BookingResource {
                     .setParameter("targetDate", targetDate)
                     .setParameter("status", false);
 
-            int numAvailableSeats = seatQuery.getResultList().size();
+            int seatsAvailable = seatQuery.getResultList().size();
 
             List<Subscription> updatedSubscriptions = new ArrayList<>();
 
             for (Subscription subscription : subscriptions) {
                 LocalDateTime date = subscription.getInfo().getDate();
+                int threshold = subscription.getInfo().getPercentageBooked();
 
+                // make sure that updates are only sent to users subscribed to the specified concert date
                 if (date.isEqual(targetDate)) {
-                    if (isThresholdExceeded(subscription.getInfo().getPercentageBooked(), numAvailableSeats, THEATRE_CAPACITY)) {
+                    if (isThresholdExceeded(threshold, seatsAvailable, THEATRE_CAPACITY)) {
                         AsyncResponse response = subscription.getResponse();
-                        response.resume(new ConcertInfoNotificationDTO(numAvailableSeats));
+                        response.resume(new ConcertInfoNotificationDTO(seatsAvailable));
                     } else {
                         updatedSubscriptions.add(subscription);
                     }
@@ -269,11 +298,25 @@ public class BookingResource {
         }
     }
 
-    private boolean isThresholdExceeded(int threshold, int numAvailable, int totalCapacity) {
-        boolean isExceeded = threshold < ((double) (totalCapacity - numAvailable) / totalCapacity) * 100;
+    /**
+     * Checks if the number of available seats has fallen below a given threshold.
+     * @param threshold Represented as an integer between 0-100. E.g a threshold of 90 means that a notification should
+     * be sent if the number of booked seats exceeds 90% (only 10% available)
+     * @param seatsAvailable The number of available seats for the given concert
+     * @param totalCapacity The total number of seats for the given theatre of the concert
+     * @return
+     */
+    private boolean isThresholdExceeded(int threshold, int seatsAvailable, int totalCapacity) {
+        boolean isExceeded = threshold < ((double) (totalCapacity - seatsAvailable) / totalCapacity) * 100;
         return isExceeded;
     }
 
+    /**
+     * Attempts to book a number of seats for a given concert for a given user. Booking is only 
+     * @param bookingRequestDTO
+     * @param user
+     * @return
+     */
     private Booking attemptToBookSeats(BookingRequestDTO bookingRequestDTO, User user) {
         EntityManager em = this.persistenceManager.createEntityManager();
         Booking booking = null;
