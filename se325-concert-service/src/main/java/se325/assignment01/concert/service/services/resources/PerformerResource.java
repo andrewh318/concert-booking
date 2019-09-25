@@ -26,7 +26,7 @@ public class PerformerResource {
     }
 
     /**
-     * Retrieves a performer given an ID
+     * Retrieves the performer associated with a given id
      * @param id
      * @return
      */

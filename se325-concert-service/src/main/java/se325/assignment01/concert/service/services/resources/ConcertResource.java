@@ -24,7 +24,12 @@ public class ConcertResource {
     public ConcertResource () {
         this.persistenceManager = PersistenceManager.instance();
     }
-    
+
+    /**
+     * Retrieves the concert associated with a given id
+     * @param id
+     * @return
+     */
     @GET
     @Path("{id}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -62,6 +67,10 @@ public class ConcertResource {
         return Response.ok(dtoConcert).build();
     }
 
+    /**
+     * Retrieves a list of all the performers in the database
+     * @return
+     */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAllConcerts() {
@@ -86,6 +95,10 @@ public class ConcertResource {
         return Response.ok(entity).build();
     }
 
+    /**
+     * Retrieves a list of summaries for all the concerts in the database
+     * @return
+     */
     @GET
     @Path("/summaries")
     @Produces(MediaType.APPLICATION_JSON)

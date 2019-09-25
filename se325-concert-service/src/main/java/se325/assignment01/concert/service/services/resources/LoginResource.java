@@ -34,7 +34,6 @@ public class LoginResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     public Response login(UserDTO userDTO) {
-        // check if the user is in the database
         User user;
         Response response;
 
@@ -42,23 +41,21 @@ public class LoginResource {
         try {
             em.getTransaction().begin();
             TypedQuery<User> userQuery = em.createQuery(
-                    "select u from User u where u.username = :targetUserName and u.password = :targetPassword",
-                    User.class
-            )
+                    "select u from User u where u.username = :targetUserName and u.password = :targetPassword", User.class)
                 .setParameter("targetUserName", userDTO.getUsername())
                 .setParameter("targetPassword", userDTO.getPassword());
 
             userQuery.setLockMode(LockModeType.OPTIMISTIC);
-
-            // calling getSingleResult throws an exception when no entry found which causes problems
+            
             user = userQuery.getResultList().stream().findFirst().orElse(null);
 
             if (user == null) {
+                // login failed
                 response = Response.status(Response.Status.UNAUTHORIZED).build();
             } else {
+                // generate auth token and associate it with the user in the DB
                 String uuid = UUID.randomUUID().toString();
 
-                // set user auth token
                 user.setAuthToken(uuid);
                 em.merge(user);
 

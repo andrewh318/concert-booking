@@ -113,7 +113,6 @@ public class BookingResource {
         try {
             em.getTransaction().begin();
 
-            // get user making request
             User user = this.getUserByAuthTokenIfExists(cookie);
 
             if (user == null) {
@@ -165,7 +164,6 @@ public class BookingResource {
                 return Response.status(Response.Status.UNAUTHORIZED).build();
             }
 
-            // find user making the booking
             User user = this.getUserByAuthTokenIfExists(cookie);
 
             if (user == null) {
@@ -175,9 +173,9 @@ public class BookingResource {
             Long targetConcertId = bookingRequestDTO.getConcertId();
             LocalDateTime targetDate = bookingRequestDTO.getDate();
 
-            // check if concert exists
             Concert concert = em.find(Concert.class, targetConcertId);
 
+            // check if concert exists and the target date is valid
             if (concert == null || !concert.getDates().contains(targetDate)) {
                 return Response.status(Response.Status.BAD_REQUEST).build();
             }
@@ -225,12 +223,12 @@ public class BookingResource {
                 response.resume(Response.status(Response.Status.FORBIDDEN).build());
             }
 
-            // check for valid concert
             long targetConcertId = concertInfoSubscriptionDTO.getConcertId();
             LocalDateTime targetDate = concertInfoSubscriptionDTO.getDate();
 
             Concert concert = em.find(Concert.class, targetConcertId);
 
+            // check if concert exists and the target date is valid
             if (concert == null || !concert.getDates().contains(targetDate)) {
                 response.resume(Response.status(Response.Status.BAD_REQUEST).build());
             }
@@ -238,7 +236,6 @@ public class BookingResource {
             // subscribe the user
             List<Subscription> subscriptions = BookingResource.activeConcertSubscriptions.getOrDefault(targetConcertId, new ArrayList<>());
             subscriptions.add(new Subscription(concertInfoSubscriptionDTO, response));
-
             BookingResource.activeConcertSubscriptions.put(targetConcertId, subscriptions);
             
             em.getTransaction().commit();
@@ -335,7 +332,7 @@ public class BookingResource {
 
             List<Seat> seatsToBook = seatQuery.getResultList();
 
-            // return error message if not all seats are available
+            // check if all seats are available in booking
             if (!(seatsToBook.size() == seatLabels.size())) {
                 return null;
             }
@@ -393,6 +390,10 @@ public class BookingResource {
     
 }
 
+/**
+ * Class that represents a subscription. A subscription contains the AsyncResponse object that is used to notify the
+ * users when the threshold requirements are met- specified by the ConcertInfoSubscriptionDTO object.
+ */
 class Subscription {
     private final AsyncResponse response;
     private final ConcertInfoSubscriptionDTO info;

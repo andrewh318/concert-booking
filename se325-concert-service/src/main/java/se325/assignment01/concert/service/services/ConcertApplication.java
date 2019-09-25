@@ -19,8 +19,10 @@ public class ConcertApplication extends Application {
     private Set<Object> singletons = new HashSet<>();
     private Set<Class<?>> classes = new HashSet<>();
 
+    /**
+     * REST API is split across multiple resource classes for readability and maintainability
+     */
     public ConcertApplication() {
-        // REST API is split across multiple resource classes for readability and maintainability
         classes.add(TestResource.class);
         classes.add(ConcertResource.class);
         classes.add(PerformerResource.class);
