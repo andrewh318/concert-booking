@@ -312,7 +312,7 @@ public class BookingResource {
     }
 
     /**
-     * Attempts to book a number of seats for a given concert for a given user. Booking is only 
+     * Attempts to book a number of seats for a given concert for a given user. Booking is only valid if all seats are available
      * @param bookingRequestDTO
      * @param user
      * @return
@@ -367,6 +367,11 @@ public class BookingResource {
         return booking;
     }
 
+    /**
+     * Helper method to extract the UUID from a cookie and checks if a valid user is associated with it
+     * @param cookie
+     * @return User if one exists, otherwise null
+     */
     private User getUserByAuthTokenIfExists(Cookie cookie) {
         EntityManager em = this.persistenceManager.createEntityManager();
         User user;

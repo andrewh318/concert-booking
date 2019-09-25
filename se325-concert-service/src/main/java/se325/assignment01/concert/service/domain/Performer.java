@@ -3,7 +3,6 @@ package se325.assignment01.concert.service.domain;
 import se325.assignment01.concert.common.types.Genre;
 
 import javax.persistence.*;
-import java.util.Set;
 
 @Entity
 @Table(name="PERFORMERS")

@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-//TODO come up with better annotations for table names of seat labels 
 public class Booking {
     @Id
     @GeneratedValue(strategy= GenerationType.IDENTITY)
@@ -21,7 +20,8 @@ public class Booking {
     @OneToMany(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
     @Fetch(FetchMode.SUBSELECT)
     private List<Seat> seats = new ArrayList<>();
-    
+
+    // TODO look into changing this to id
     @ManyToOne
     private User user;
 

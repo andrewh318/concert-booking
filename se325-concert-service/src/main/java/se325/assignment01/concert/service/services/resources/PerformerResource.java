@@ -25,6 +25,11 @@ public class PerformerResource {
         this.persistenceManager = PersistenceManager.instance();
     }
 
+    /**
+     * Retrieves a performer given an ID
+     * @param id
+     * @return
+     */
     @GET
     @Path("{id}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -48,6 +53,10 @@ public class PerformerResource {
         return Response.ok(dtoPerformer).build();
     }
 
+    /**
+     * Retrieves a list of all the performers in the database
+     * @return
+     */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAllPerformers() {

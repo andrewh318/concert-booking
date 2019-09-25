@@ -26,6 +26,11 @@ public class LoginResource {
         this.persistenceManager = PersistenceManager.instance();
     }
 
+    /**
+     * Verifies if a users credential are valid, if so, assigns a new auth token to the user and persists it to the DB
+     * @param userDTO Object that represents a given username and password
+     * @return
+     */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     public Response login(UserDTO userDTO) {

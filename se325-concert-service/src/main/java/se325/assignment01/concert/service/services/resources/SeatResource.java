@@ -28,6 +28,12 @@ public class SeatResource {
         this.persistenceManager = PersistenceManager.instance();
     }
 
+    /**
+     * Gets all the seats for a given concert with options to filter by seat status
+     * @param dateParam date identifying the concert
+     * @param status booked, unbooked or any
+     * @return
+     */
     @GET
     @Path("{time}")
     @Produces(MediaType.APPLICATION_JSON)
